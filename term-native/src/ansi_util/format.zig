@@ -115,6 +115,11 @@ pub fn updateStyle(writer: anytype, new: Style, old: ?Style) !void {
     try writer.writeAll("m");
 }
 
+pub fn updateStyleAndFlush(writer: anytype, new: Style, old: ?Style) !void {
+    try updateStyle(writer, new, old);
+    try writer.flush();
+}
+
 test "same style default, no update" {
     var buf: [1024]u8 = undefined;
     var fixed_buf_stream = fixedBufferStream(&buf);
@@ -261,6 +266,11 @@ test "no reset required add color style" {
 
 pub fn resetStyle(writer: anytype) !void {
     try writer.writeAll(reset);
+}
+
+pub fn resetStyleAndFlush(writer: anytype) !void {
+    try resetStyle(writer);
+    try writer.flush();
 }
 
 test "reset style" {

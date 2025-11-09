@@ -1,10 +1,11 @@
 const std = @import("std");
+const Io = std.Io;
 const tui_context = @import("./tui_context.zig");
 const ansi = @import("../ansi_util/index.zig");
 const std_io = @import("./std_io.zig");
 const alloc = @import("./alloc.zig");
 
-var jsLogger: ?*const fn ([*c]const u8) callconv(.C) void = null;
+var jsLogger: ?*const fn ([*c]const u8) callconv(.c) void = null;
 
 pub fn logErr(comptime str: []const u8) void {
     if (jsLogger) |cb| {
@@ -29,10 +30,11 @@ pub const TuiApp = struct {
     pub fn exit(_: @This()) void {}
 };
 
-pub fn runApp(logger: *const fn ([*c]const u8) callconv(.C) void) *TuiApp {
+pub fn runApp(logger: *const fn ([*c]const u8) callconv(.c) void) *TuiApp {
     alloc.init();
     jsLogger = logger;
-    const writer = std_io.getStdWriter();
+    std_io.init();
+    const writer: *Io.Writer = &std_io.writer.interface;
     ansi.terminal.enterAlternateScreen(writer) catch unreachable;
     ansi.cursor.hideCursor(writer) catch unreachable;
     const tuiContext = tui_context.TuiContext{};
@@ -47,7 +49,8 @@ pub fn runApp(logger: *const fn ([*c]const u8) callconv(.C) void) *TuiApp {
 }
 
 pub fn exitApp(appApr: *TuiApp) void {
-    const writer = std_io.getStdWriter();
+    std_io.init();
+    const writer: *Io.Writer = &std_io.writer.interface;
     ansi.cursor.showCursor(writer) catch unreachable;
     ansi.terminal.leaveAlternateScreen(writer) catch unreachable;
     appApr.exit();
