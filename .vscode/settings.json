@@ -1,0 +1,13 @@
+{
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true,
+    "editor.tabSize": 4,
+    "[zig]": {
+        "editor.defaultFormatter": "ziglang.vscode-zig",
+    },
+    "[typescript]": {
+        "prettier.semi": true,
+        "prettier.singleQuote": true,
+        "prettier.tabWidth": 4
+    }
+}
