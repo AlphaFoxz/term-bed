@@ -6,10 +6,16 @@ const widgets = @import("./core/widgets.zig");
 const ansi = @import("./ansi_util.zig");
 const tui_app = @import("./core/tui_app.zig");
 const render = @import("./render.zig");
+const alloc = @import("./core/alloc.zig");
 
 // ======================== app ========================
-pub export fn runApp(logger: *const fn ([*c]const u8) callconv(.c) void) *tui_app.TuiApp {
-    return tui_app.runApp(logger);
+pub export fn runApp(cdir_path: [*:0]const u8) *tui_app.TuiApp {
+    alloc.init();
+    const dir_path = alloc.allocator().dupe(u8, std.mem.span(cdir_path)) catch {
+        std.log.err("Out of memory", .{});
+        std.process.exit(1);
+    };
+    return tui_app.runApp(dir_path);
 }
 
 pub export fn exitApp(app: *tui_app.TuiApp) void {
@@ -19,13 +25,19 @@ pub export fn exitApp(app: *tui_app.TuiApp) void {
 pub export fn renderApp() void {}
 
 pub export fn forceRenderApp(app_ptr: *tui_app.TuiApp) void {
-    forceRenderApp(app_ptr);
+    render.forceRenderApp(app_ptr);
 }
 
 // ======================== widgets =======================
-pub export fn createText(x: u16, y: u16, width: u16, height: u16, cstr: [*:0]const u8) *widgets.text.Text {
+pub export fn createTextWidget(x: u16, y: u16, width: u16, height: u16, cstr: [*:0]const u8) *widgets.text.Text {
     const text = String.fromCString(cstr);
     return widgets.text.createText(x, y, width, height, text);
+}
+
+pub export fn destroyWidget(widget_ptr: ?*widgets.Widget) void {
+    if (widget_ptr == null) {} else {
+        widgets.destroyWidget(widget_ptr.?);
+    }
 }
 
 // ======================== ansi ========================

@@ -5,7 +5,11 @@ const dllPath = `./term-native/zig-out/bin/tui_app.${suffix}`;
 const lib = dlopen(dllPath, {
     createTextWidget: {
         returns: FFIType.pointer,
-        args: [FFIType.cstring, FFIType.u16, FFIType.u16, FFIType.u16, FFIType.u16],
+        args: [FFIType.u16, FFIType.u16, FFIType.u16, FFIType.u16, FFIType.cstring],
+    },
+    destroyWidget: {
+        returns: FFIType.void,
+        args: [FFIType.pointer],
     },
 }).symbols;
 
@@ -30,4 +34,5 @@ export default {
             toCstring(options.text)
         );
     },
+    destroyWidget: lib.destroyWidget,
 };

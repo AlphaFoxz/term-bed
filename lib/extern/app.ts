@@ -1,40 +1,24 @@
-import { dlopen, FFIType, suffix, JSCallback, CString, type Pointer } from 'bun:ffi';
-import { appendFile } from 'fs/promises';
+import { dlopen, FFIType, suffix, type Pointer } from 'bun:ffi';
+import { toCstring } from './util';
 
 const dllPath = `./term-native/zig-out/bin/tui_app.${suffix}`;
 console.debug('dll path:', dllPath);
 const lib = dlopen(dllPath, {
-    runApp: { returns: FFIType.pointer, args: [FFIType.pointer] },
+    runApp: { returns: FFIType.pointer, args: [FFIType.cstring] },
     exitApp: { returns: FFIType.void, args: [FFIType.pointer] },
     forceRenderApp: { returns: FFIType.pointer, args: [FFIType.pointer] },
 }).symbols;
 
-const logFilePath = process.cwd() + '/log.log';
-Bun.write(logFilePath, '');
-/*
-info:
-error:
-debug:
-warning: 
-*/
-const loggerCallback = new JSCallback(
-    (ptr: Pointer, length: number) => {
-        const timestamp = new Date().toISOString();
-        const logEntry = `[${timestamp}] ${new CString(ptr, 0, length).toString()}\n`;
-        appendFile(logFilePath, logEntry, { encoding: 'utf-8' });
-    },
-    { returns: FFIType.void, args: [FFIType.ptr, FFIType.u64] }
-);
+const logFilePath = process.cwd();
 
 export default {
-    runApp: () => {
-        return lib.runApp(loggerCallback.ptr);
+    runApp: async () => {
+        await Bun.write(logFilePath + '/term-bed.log', '');
+        return lib.runApp(toCstring(logFilePath));
     },
     exitApp: async (appPtr: Pointer | null) => {
+        if (!appPtr) return;
         lib.exitApp(appPtr);
-        const timestamp = new Date().toISOString();
-        const logEntry = `[${timestamp}] warning: TuiApp exited with code 0\n`;
-        await appendFile(logFilePath, logEntry, { encoding: 'utf-8' });
     },
     forceRenderApp: lib.forceRenderApp,
 };

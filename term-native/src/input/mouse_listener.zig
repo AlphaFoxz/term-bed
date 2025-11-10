@@ -88,7 +88,7 @@ pub fn stop() void {
 }
 
 fn listen() !void {
-    // logger.logInfo("mouse event listener starting...");
+    logger.logInfo("mouse event listener starting...");
     std.debug.print("mouse event listener starting...", .{});
 
     // const stdout = &std_io.writer.interface;
@@ -123,24 +123,21 @@ fn listen() !void {
 
                 // 检测按钮点击
                 if (mouse.dwButtonState & FROM_LEFT_1ST_BUTTON_PRESSED != 0) {
-                    // logger.logInfoFmt("mouse left click: ({}, {})\n", .{
-                    std.debug.print("mouse left click: ({}, {})\n", .{
+                    logger.logDebugFmt("mouse left click: ({}, {})", .{
                         mouse.dwMousePosition.X,
                         mouse.dwMousePosition.Y,
                     });
                 }
 
                 if (mouse.dwButtonState & RIGHTMOST_BUTTON_PRESSED != 0) {
-                    // logger.logInfoFmt("mouse right click: ({}, {})\n", .{
-                    std.debug.print("mouse right click: ({}, {})\n", .{
+                    logger.logDebugFmt("mouse right click: ({}, {})", .{
                         mouse.dwMousePosition.X,
                         mouse.dwMousePosition.Y,
                     });
                 }
 
                 if (mouse.dwButtonState & FROM_LEFT_2ND_BUTTON_PRESSED != 0) {
-                    // logger.logInfoFmt("mouse middle click: ({}, {})\n", .{
-                    std.debug.print("mouse middle click: ({}, {})\n", .{
+                    logger.logDebugFmt("mouse middle click: ({}, {})", .{
                         mouse.dwMousePosition.X,
                         mouse.dwMousePosition.Y,
                     });
@@ -156,8 +153,7 @@ fn listen() !void {
 
                 // 检测双击
                 if (mouse.dwEventFlags & DOUBLE_CLICK != 0) {
-                    // logger.logInfoFmt("mouse double click: ({}, {})\n", .{
-                    std.debug.print("mouse double click: ({}, {})\n", .{
+                    logger.logDebugFmt("mouse double click: ({}, {})", .{
                         mouse.dwMousePosition.X,
                         mouse.dwMousePosition.Y,
                     });
@@ -167,8 +163,7 @@ fn listen() !void {
                 if (mouse.dwEventFlags & MOUSE_WHEELED != 0) {
                     const delta = @as(i32, @bitCast(mouse.dwButtonState)) >> 16;
                     const direction = if (delta > 0) "up" else "down";
-                    // logger.logInfoFmt("mouse wheel {s}: ({}, {})\n", .{
-                    std.debug.print("mouse wheel {s}: ({}, {})\n", .{
+                    logger.logDebugFmt("mouse wheel {s}: ({}, {})", .{
                         direction,
                         mouse.dwMousePosition.X,
                         mouse.dwMousePosition.Y,

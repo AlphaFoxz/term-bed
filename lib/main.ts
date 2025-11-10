@@ -1,38 +1,37 @@
-import { createReactive } from '../lib/reactive';
-import app from './extern/app';
-import ansi from './extern/ansi';
-import { mount } from '../lib/renderer';
+import { App } from './app';
+import Text from './widgets/Text';
 
-const [state, watch] = createReactive({ count: 0 });
+const app = new App();
 
-const appInstance = app.runApp();
+const counter = new Text({
+    x: 0,
+    y: 0,
+    width: 20,
+    height: 1,
+    text: 'Count: 0',
+});
+const TIPS1 = new Text({
+    x: 0,
+    y: 0,
+    width: 20,
+    height: 1,
+    text: 'Press - / + to change count.',
+});
+const TIPS2 = new Text({
+    x: 0,
+    y: 1,
+    width: 20,
+    height: 1,
+    text: `Press Ctrl+C to exit.`,
+});
+app.startApp();
 
-watch(() => render());
-
-const TIPS1 = `Press ENTER to increment.`;
-const TIPS2 = `Press Ctrl+C to exit.`;
-
-function render() {
-    ansi.drawText(0, 0, `Count: ${state.count.toString()}`.padEnd(20, ' '));
-    ansi.drawText(0, 1, TIPS1);
-    ansi.drawText(0, 2, TIPS2);
-}
-
-mount(render);
-
-process.stdin.setRawMode(true);
-process.stdin.resume();
+let count = 0;
 process.stdin.on('data', async (data) => {
-    if (data.toString() === '\r') {
-        state.count++;
-    } else if (data.toString() === '+') {
-        state.count++;
-    } else if (data.toString() === '-') {
-        state.count--;
-    }
-    if (data.toString() === '\u0003') {
-        // Ctrl+C
-        await app.exitApp(appInstance);
-        process.exit(0);
+    const input = data.toString().trim();
+    if (input === '-') count -= 1;
+    if (input === '+') count += 1;
+    if (input === '\u0003') {
+        await app.stopApp();
     }
 });
