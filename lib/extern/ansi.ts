@@ -1,4 +1,6 @@
 import { dlopen, FFIType, suffix } from 'bun:ffi';
+import { toCstring } from './util';
+
 const dllPath = `./term-native/zig-out/bin/tui_app.${suffix}`;
 const lib = dlopen(dllPath, {
     resetStyle: { returns: FFIType.void, args: [] },
@@ -8,4 +10,12 @@ const lib = dlopen(dllPath, {
     drawText: { returns: FFIType.void, args: [FFIType.i32, FFIType.i32, FFIType.cstring] },
 }).symbols;
 
-export default lib;
+export default {
+    resetStyle: lib.resetStyle,
+    showCursor: lib.showCursor,
+    hideCursor: lib.hideCursor,
+    clearScreen: lib.clearScreen,
+    drawText: (x: number, y: number, text: string) => {
+        lib.drawText(x, y, toCstring(text));
+    },
+};

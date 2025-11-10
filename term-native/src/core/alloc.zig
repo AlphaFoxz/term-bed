@@ -1,5 +1,4 @@
 const std = @import("std");
-
 const alloc = std.heap.c_allocator;
 
 pub fn init() void {}

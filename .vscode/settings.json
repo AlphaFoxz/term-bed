@@ -9,5 +9,10 @@
         "prettier.semi": true,
         "prettier.singleQuote": true,
         "prettier.tabWidth": 4
-    }
+    },
+    "zig.testArgs": [
+        "build",
+        "test",
+        "-Dtest-filter=${filter}"
+    ]
 }

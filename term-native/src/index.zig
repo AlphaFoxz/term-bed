@@ -1,8 +1,11 @@
 const std = @import("std");
 const Io = std.Io;
 const std_io = @import("./core/std_io.zig");
-const ansi = @import("./ansi_util/index.zig");
+const String = @import("./core/string.zig").String;
+const widgets = @import("./core/widgets.zig");
+const ansi = @import("./ansi_util.zig");
 const tui_app = @import("./core/tui_app.zig");
+const render = @import("./render.zig");
 
 // ======================== app ========================
 pub export fn runApp(logger: *const fn ([*c]const u8) callconv(.c) void) *tui_app.TuiApp {
@@ -11,6 +14,18 @@ pub export fn runApp(logger: *const fn ([*c]const u8) callconv(.c) void) *tui_ap
 
 pub export fn exitApp(app: *tui_app.TuiApp) void {
     tui_app.exitApp(app);
+}
+
+pub export fn renderApp() void {}
+
+pub export fn forceRenderApp(app_ptr: *tui_app.TuiApp) void {
+    forceRenderApp(app_ptr);
+}
+
+// ======================== widgets =======================
+pub export fn createText(x: u16, y: u16, width: u16, height: u16, cstr: [*:0]const u8) *widgets.text.Text {
+    const text = String.fromCString(cstr);
+    return widgets.text.createText(x, y, width, height, text);
 }
 
 // ======================== ansi ========================
@@ -38,9 +53,9 @@ pub export fn clearScreen() void {
     ansi.clear.clearScreenAndFlush(writer) catch unreachable;
 }
 
-pub export fn drawText(row: i32, col: i32, cstr: [*:0]const u8) void {
+pub export fn drawText(x: u16, y: u16, cstr: [*:0]const u8) void {
     const s = std.mem.span(cstr);
     std_io.init();
     const writer: *Io.Writer = &std_io.writer.interface;
-    ansi.printAndFlush(writer, "\x1b[{d};{d}H{s}", .{ row + 1, col + 1, s }) catch unreachable;
+    ansi.printAndFlush(writer, "\x1b[{d};{d}H{s}", .{ y + 1, x + 1, s }) catch unreachable;
 }

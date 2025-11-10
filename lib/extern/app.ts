@@ -6,6 +6,7 @@ console.debug('dll path:', dllPath);
 const lib = dlopen(dllPath, {
     runApp: { returns: FFIType.pointer, args: [FFIType.pointer] },
     exitApp: { returns: FFIType.void, args: [FFIType.pointer] },
+    forceRenderApp: { returns: FFIType.pointer, args: [FFIType.pointer] },
 }).symbols;
 
 const logFilePath = process.cwd() + '/log.log';
@@ -35,4 +36,5 @@ export default {
         const logEntry = `[${timestamp}] warning: TuiApp exited with code 0\n`;
         await appendFile(logFilePath, logEntry, { encoding: 'utf-8' });
     },
+    forceRenderApp: lib.forceRenderApp,
 };
