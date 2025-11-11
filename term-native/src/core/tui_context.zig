@@ -2,7 +2,7 @@ const std = @import("std");
 const builtin = @import("builtin");
 const std_io = @import("./std_io.zig");
 const logger = @import("./logger.zig");
-const TuiRect = @import("./widgets/structures.zig").TuiRect;
+const TuiRect = @import("./widgets/common.zig").TuiRect;
 
 const TuiScale = u16;
 

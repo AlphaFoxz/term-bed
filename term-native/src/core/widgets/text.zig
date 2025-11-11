@@ -1,10 +1,11 @@
 const std = @import("std");
-const TuiRect = @import("./structures.zig").TuiRect;
+const wdt_common = @import("./common.zig");
 const String = @import("../string.zig").String;
 const alloc = @import("../alloc.zig");
 
 pub const Text = struct {
-    rect: TuiRect,
+    id: u64,
+    rect: wdt_common.TuiRect,
     text: *String,
 
     pub fn destroy(self: *Text) void {
@@ -25,7 +26,8 @@ pub fn createText(
         std.process.exit(1);
     };
     text_prt.* = Text{
-        .rect = TuiRect{ .x = x, .y = y, .rows = height, .cols = width },
+        .id = wdt_common.genId(),
+        .rect = wdt_common.TuiRect{ .x = x, .y = y, .rows = height, .cols = width },
         .text = text,
     };
     return text_prt;

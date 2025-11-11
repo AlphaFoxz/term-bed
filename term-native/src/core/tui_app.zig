@@ -31,7 +31,7 @@ pub fn runApp(log_dir_path: []const u8) *TuiApp {
     };
     app_ptr.* = TuiApp.run(context);
     input.startListening();
-    logger.logInfoFmt("TuiApp started", .{});
+    logger.logInfo("TuiApp started");
     return app_ptr;
 }
 
@@ -46,4 +46,5 @@ pub fn exitApp(app_ptr: *TuiApp) void {
     std_io.flushAll();
     alloc.allocator().destroy(app_ptr);
     alloc.deinit();
+    logger.logWaring("TuiApp exited");
 }

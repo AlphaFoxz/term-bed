@@ -6,17 +6,17 @@ pub const mouse_listener = @import("./input/mouse_listener.zig");
 pub const key_listener = @import("./input/key_listener.zig");
 
 pub fn startListening() void {
-    setRawMode(true);
-    logger.logInfo("Raw mode set to true");
+    // setRawMode(true);
+    // logger.logInfo("Raw mode set to true");
     key_listener.start();
-    mouse_listener.start();
+    // mouse_listener.start();
 }
 
 pub fn stopListening() void {
-    setRawMode(false);
-    logger.logInfo("Raw mode set to false");
+    // setRawMode(false);
+    // logger.logInfo("Raw mode set to false");
     key_listener.stop();
-    mouse_listener.stop();
+    // mouse_listener.stop();
 }
 
 fn rawModeError() noreturn {

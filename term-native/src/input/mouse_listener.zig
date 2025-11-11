@@ -89,7 +89,6 @@ pub fn stop() void {
 
 fn listen() !void {
     logger.logInfo("mouse event listener starting...");
-    std.debug.print("mouse event listener starting...", .{});
 
     // const stdout = &std_io.writer.interface;
     const stdin_handle = windows.kernel32.GetStdHandle(@as(u32, @bitCast(@as(i32, -10)))).?;

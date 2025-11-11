@@ -1,7 +1,7 @@
-import { type Destroyable } from '../extern';
+import { type Disposable } from '../extern';
 import widgets, { type TextWidgetOptions } from '../extern/widgets';
 
-export default class Text implements Destroyable {
+export default class Text implements Disposable {
     #ptr: any;
     constructor(options: TextWidgetOptions) {
         this.#ptr = widgets.createTextWidget(options);
@@ -9,15 +9,15 @@ export default class Text implements Destroyable {
 
     private render() {}
 
-    destroy() {
+    dispose() {
         if (!this.#ptr) return;
         widgets.destroyWidget(this.#ptr);
     }
 
     [Symbol.dispose]() {
-        this.destroy();
+        this.dispose();
     }
     [Symbol.asyncDispose]() {
-        this.destroy();
+        this.dispose();
     }
 }

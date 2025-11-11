@@ -10,9 +10,19 @@
         "prettier.singleQuote": true,
         "prettier.tabWidth": 4
     },
-    "zig.testArgs": [
-        "build",
-        "test",
-        "-Dtest-filter=${filter}"
-    ]
+    // "zig.testArgs": [
+    //     "build",
+    //     "test",
+    //     "-Dtest-filter=${filter}"
+    // ],
+    // "zig.buildOnSaveArgs": [
+    //     "--build-file",
+    //     "${workspaceFolder}/term-native/build.zig"
+    // ],
+    // "zig.debugTestArgs": [
+    //     "test",
+    //     "-femit-bin",
+    //     "${workspaceFolder}/term-native/zig-out/bin",
+    // ]
+    // "zig.path": "${workspaceFolder}/term-native/build.zig"
 }

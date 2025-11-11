@@ -30,7 +30,7 @@ pub export fn forceRenderApp(app_ptr: *tui_app.TuiApp) void {
 
 // ======================== widgets =======================
 pub export fn createTextWidget(x: u16, y: u16, width: u16, height: u16, cstr: [*:0]const u8) *widgets.text.Text {
-    const text = String.fromCString(cstr);
+    const text = String.initFromCSclice(cstr);
     return widgets.text.createText(x, y, width, height, text);
 }
 
