@@ -1,8 +1,7 @@
-import { dlopen, FFIType, suffix } from 'bun:ffi';
-import { toCstring } from './util';
+import { dlopen, FFIType } from 'bun:ffi';
+import { toCstring, fetchDllPath } from './util';
 
-const dllPath = `./term-native/zig-out/bin/tui_app.${suffix}`;
-const lib = dlopen(dllPath, {
+const lib = dlopen(fetchDllPath(), {
     resetStyle: { returns: FFIType.void, args: [] },
     showCursor: { returns: FFIType.void, args: [] },
     hideCursor: { returns: FFIType.void, args: [] },

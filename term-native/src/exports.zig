@@ -6,20 +6,25 @@ const widgets = @import("./core/widgets.zig");
 const ansi = @import("./ansi_util.zig");
 const tui_app = @import("./core/tui_app.zig");
 const render = @import("./render.zig");
-const alloc = @import("./core/alloc.zig");
+const glo_alloc = @import("./core/glo_alloc.zig");
+const logger = @import("./core/logger.zig");
 
 // ======================== app ========================
-pub export fn runApp(cdir_path: [*:0]const u8) *tui_app.TuiApp {
-    alloc.init();
-    const dir_path = alloc.allocator().dupe(u8, std.mem.span(cdir_path)) catch {
+pub export fn setupLogger(cdir_path: [*:0]const u8, log_level: logger.LOG_LEVEL) void {
+    const alloc = glo_alloc.allocator();
+    const dir_path = alloc.dupe(u8, std.mem.span(cdir_path)) catch {
         std.log.err("Out of memory", .{});
         std.process.exit(1);
     };
-    return tui_app.runApp(dir_path);
+    return logger.setup(dir_path, log_level);
 }
 
-pub export fn exitApp(app: *tui_app.TuiApp) void {
-    tui_app.exitApp(app);
+pub export fn createApp() *tui_app.TuiApp {
+    return tui_app.createApp();
+}
+
+pub export fn destroyApp(app: *tui_app.TuiApp) void {
+    tui_app.destroyApp(app);
 }
 
 pub export fn renderApp() void {}
@@ -29,12 +34,16 @@ pub export fn forceRenderApp(app_ptr: *tui_app.TuiApp) void {
 }
 
 // ======================== widgets =======================
-pub export fn createTextWidget(x: u16, y: u16, width: u16, height: u16, cstr: [*:0]const u8) *widgets.text.Text {
-    const text = String.initFromCSclice(cstr);
-    return widgets.text.createText(x, y, width, height, text);
+pub export fn createSceneWidget(visible: bool) *widgets.scene.Scene {
+    return widgets.scene.createScene(visible);
 }
 
-pub export fn destroyWidget(widget_ptr: ?*widgets.Widget) void {
+pub export fn createTextWidget(x: u16, y: u16, width: u16, height: u16, visible: bool, cstr: [*:0]const u8) *widgets.text.Text {
+    const text = String.initFromCSclice(cstr);
+    return widgets.text.createText(x, y, width, height, visible, text);
+}
+
+pub export fn destroyWidget(widget_ptr: ?*widgets.common.Widget) void {
     if (widget_ptr == null) {} else {
         widgets.destroyWidget(widget_ptr.?);
     }

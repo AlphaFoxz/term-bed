@@ -1,13 +1,16 @@
-import { type Disposable } from '../extern';
-import widgets, { type TextWidgetOptions } from '../extern/widgets';
+import type { Disposable, WidgetLike } from '../app/define';
+import widgets, { type TextWidgetStyleOptions } from '../extern/widgets';
 
-export default class Text implements Disposable {
+export default class Text implements Disposable, WidgetLike {
+    #id = NaN;
     #ptr: any;
-    constructor(options: TextWidgetOptions) {
+    constructor(options: TextWidgetStyleOptions) {
         this.#ptr = widgets.createTextWidget(options);
     }
-
-    private render() {}
+    get id() {
+        // FIXME-wong
+        return 1;
+    }
 
     dispose() {
         if (!this.#ptr) return;

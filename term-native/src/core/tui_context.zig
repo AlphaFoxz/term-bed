@@ -3,17 +3,30 @@ const builtin = @import("builtin");
 const std_io = @import("./std_io.zig");
 const logger = @import("./logger.zig");
 const TuiRect = @import("./widgets/common.zig").TuiRect;
+const err = @import("./error.zig");
+const glo_alloc = @import("./glo_alloc.zig");
 
 const TuiScale = u16;
 
 pub const TuiContext = struct {
+    alloc: std.mem.Allocator,
     screen_rect: TuiRect,
-};
 
-pub fn createTuiContext() TuiContext {
-    const screen_rect = detectScreenRect();
-    return TuiContext{ .screen_rect = screen_rect };
-}
+    pub fn init(alloc: std.mem.Allocator) *TuiContext {
+        const ptr = alloc.create(TuiContext) catch {
+            err.outOfMemory();
+        };
+        ptr.* = TuiContext{
+            .alloc = alloc,
+            .screen_rect = detectScreenRect(),
+        };
+        return ptr;
+    }
+
+    pub fn deinit(self: *TuiContext) void {
+        defer self.alloc.destroy(self);
+    }
+};
 
 fn detectScreenRect() TuiRect {
     var screen_rect = TuiRect{
@@ -55,6 +68,9 @@ fn detectScreenRect() TuiRect {
         if (posix.errno(errno) == .SUCCESS) {
             screen_rect.cols = winsize.col;
             screen_rect.rows = winsize.row;
+        } else {
+            logger.logError("posix cannot ioctl");
+            return screen_rect;
         }
     }
     return screen_rect;

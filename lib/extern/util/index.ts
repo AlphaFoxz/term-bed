@@ -1,4 +1,6 @@
-import { type Pointer, CString } from 'bun:ffi';
+import path from 'path';
+import { type Pointer, CString, suffix } from 'bun:ffi';
+import Bun from 'bun';
 
 const encoder = new TextEncoder();
 
@@ -12,4 +14,13 @@ export function toCstring(str: string): Uint8Array {
 
 export function cToString(ptr: Pointer, length: number): string {
     return new CString(ptr, 0, length).toString();
+}
+
+let dllPath: string;
+export function fetchDllPath() {
+    if (!dllPath) {
+        dllPath = path.resolve(path.dirname(Bun.main), `tui_app.${suffix}`);
+        console.debug('dllPath', dllPath);
+    }
+    return dllPath;
 }

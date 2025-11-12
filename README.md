@@ -1,15 +1,22 @@
-# term-bed
+# Readme
 
-To install dependencies:
+## zig naming rules
 
-```bash
-bun install
-```
+### functions
 
-To run:
+- Use camelCase
+- **A APPLYING FUNCTION MUST BE PAIRED TO A RELEASING FUNCTION**. Such as:
+  - `create`Object() and `destroy`Object()
+  - `init`Source() and `deinit`Source()
+  - `open`Streaming() and `close`Streaming()
+  - `connect`() and `disconnect`()
+  - `lock`() and `unlock`()
+  - `alloc`One() and `free`Arr() / `destroy`One()
+  - `register`() and `unregister`()
+  - `load`() and `unload`()
+  - `start`() and `stop`()
+  - `enter`() and `exit`()
 
-```bash
-bun run index.ts
-```
+### variables
 
-This project was created using `bun init` in bun v1.2.21. [Bun](https://bun.com) is a fast all-in-one JavaScript runtime.
+- Use snake_case

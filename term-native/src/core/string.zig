@@ -1,8 +1,8 @@
 const std = @import("std");
-const err = @import("../error.zig");
+const err = @import("./error.zig");
 const logger = @import("./logger.zig");
 // const gpa = std.heap.GeneralPurposeAllocator(.{}){};
-const str_alloc = std.heap.c_allocator;
+const glo_alloc = @import("./glo_alloc.zig");
 
 pub const Utf8Iterator = struct {
     bytes: []const u8,
@@ -43,58 +43,73 @@ pub const Utf8Iterator = struct {
 
 pub const String = struct {
     buffer: std.ArrayList(u8),
+    alloc: std.mem.Allocator,
 
     pub fn init() *String {
-        const ptr = str_alloc.create(String) catch {
+        const alloc = glo_alloc.allocator();
+        const ptr = alloc.create(String) catch {
             err.outOfMemory();
         };
         ptr.* = String{
-            .buffer = std.ArrayList(u8).initCapacity(str_alloc) catch {
+            .alloc = alloc,
+            .buffer = std.ArrayList(u8).initCapacity(alloc, 0) catch {
                 err.outOfMemory();
             },
         };
         return ptr;
     }
 
+    pub fn deinit(self: *String) void {
+        defer self.alloc.destroy(self);
+        self.buffer.deinit(self.alloc);
+    }
+
     pub fn initFromSclice(slice: []const u8) *String {
-        const ptr = str_alloc.create(String) catch {
+        const alloc = glo_alloc.allocator();
+        const ptr = alloc.create(String) catch {
             err.outOfMemory();
         };
-        const buffer = std.ArrayList(u8).initCapacity(str_alloc, slice.len) catch {
+        const buffer = std.ArrayList(u8).initCapacity(alloc, slice.len) catch {
             err.outOfMemory();
         };
-        ptr.* = String{ .buffer = buffer };
+        ptr.* = String{
+            .alloc = alloc,
+            .buffer = buffer,
+        };
         ptr.*.append(slice);
         return ptr;
     }
 
     pub fn initFromCSclice(slice: [*:0]const u8) *String {
-        const ptr = str_alloc.create(String) catch {
+        const alloc = glo_alloc.allocator();
+        const ptr = alloc.create(String) catch {
             err.outOfMemory();
         };
-        // errdefer str_alloc.destroy(ptr);
 
         const s = std.mem.span(slice);
 
-        var buffer = std.ArrayList(u8).initCapacity(str_alloc, s.len) catch {
+        var buffer = std.ArrayList(u8).initCapacity(alloc, s.len) catch {
             err.outOfMemory();
         };
-        buffer.appendSlice(str_alloc, s) catch {
+        buffer.appendSlice(alloc, s) catch {
             err.outOfMemory();
         };
-        ptr.* = String{ .buffer = buffer };
+        ptr.* = String{
+            .alloc = alloc,
+            .buffer = buffer,
+        };
         return ptr;
     }
 
     pub fn append(self: *String, slice: []const u8) void {
-        self.buffer.appendSlice(str_alloc, slice) catch {
+        self.buffer.appendSlice(self.alloc, slice) catch {
             err.outOfMemory();
         };
     }
 
     pub fn set(self: *String, slice: []const u8) void {
         self.buffer.clearRetainingCapacity();
-        self.buffer.appendSlice(str_alloc, slice) catch {
+        self.buffer.appendSlice(self.alloc, slice) catch {
             err.outOfMemory();
         };
     }
@@ -111,11 +126,6 @@ pub const String = struct {
     }
     pub fn toSlice(self: *String) []u8 {
         return self.buffer.items;
-    }
-
-    pub fn deinit(self: *String) void {
-        self.buffer.deinit(str_alloc);
-        str_alloc.destroy(self);
     }
 };
 
@@ -139,3 +149,16 @@ fn unicodeWidth(codepoint: u21) usize {
     if (codepoint >= 0xAC00 and codepoint <= 0xD7AF) return 2; // 韩文
     return 1; // 默认
 }
+
+pub const SPECIAL_CHARS = struct {
+    pub const resize = "⊿";
+    pub const minimal = "―";
+    pub const normalize = "=";
+    pub const maximize = "○";
+    pub const close = "×";
+
+    pub const minimal_l = "↓";
+    pub const normalize_l = "△";
+    pub const maximize_l = "↑";
+    pub const close_l = "✖";
+};

@@ -1,9 +1,25 @@
 const std = @import("std");
 
+pub const LOG_LEVEL = u8;
+pub const LOG_LEVEL_DEBUG: u8 = 0;
+pub const LOG_LEVEL_INFO: u8 = 1;
+pub const LOG_LEVEL_WARNING: u8 = 2;
+pub const LOG_LEVEL_ERROR: u8 = 3;
+
+var log_level: LOG_LEVEL = LOG_LEVEL_INFO;
 var log_dir_path: []const u8 = undefined;
 var log_path_init: bool = false;
 
-pub fn init(dir_path: []const u8) void {
+pub fn setup(dir_path: []const u8, lvl: LOG_LEVEL) void {
+    switch (log_level) {
+        0...4 => {
+            log_level = lvl;
+        },
+        else => {
+            std.log.err("Out of memory", .{});
+            std.process.exit(1);
+        },
+    }
     if (log_path_init) {
         return;
     }
@@ -78,6 +94,9 @@ fn write(msg: []const u8) void {
 }
 
 pub fn logDebug(msg: []const u8) void {
+    if (log_level > LOG_LEVEL_DEBUG) {
+        return;
+    }
     const alloc = std.heap.page_allocator;
     const timestamp = currentTimstampStr(alloc);
     const str = std.fmt.allocPrint(alloc, "{s} debug: {s}\n", .{ timestamp, msg }) catch {
@@ -88,6 +107,9 @@ pub fn logDebug(msg: []const u8) void {
 }
 
 pub fn logDebugFmt(comptime fmt: []const u8, args: anytype) void {
+    if (log_level > LOG_LEVEL_DEBUG) {
+        return;
+    }
     const alloc = std.heap.page_allocator;
     const timestamp = currentTimstampStr(alloc);
     const str = std.fmt.allocPrint(
@@ -102,6 +124,9 @@ pub fn logDebugFmt(comptime fmt: []const u8, args: anytype) void {
 }
 
 pub fn logInfo(msg: []const u8) void {
+    if (log_level > LOG_LEVEL_INFO) {
+        return;
+    }
     const alloc = std.heap.page_allocator;
     const timestamp = currentTimstampStr(alloc);
     const str = std.fmt.allocPrint(alloc, "{s} info: {s}\n", .{ timestamp, msg }) catch {
@@ -112,6 +137,9 @@ pub fn logInfo(msg: []const u8) void {
 }
 
 pub fn logInfoFmt(comptime fmt: []const u8, args: anytype) void {
+    if (log_level > LOG_LEVEL_INFO) {
+        return;
+    }
     const alloc = std.heap.page_allocator;
     const timestamp = currentTimstampStr(alloc);
     const str = std.fmt.allocPrint(
@@ -126,6 +154,9 @@ pub fn logInfoFmt(comptime fmt: []const u8, args: anytype) void {
 }
 
 pub fn logWaring(msg: []const u8) void {
+    if (log_level > LOG_LEVEL_WARNING) {
+        return;
+    }
     const alloc = std.heap.page_allocator;
     const timestamp = currentTimstampStr(alloc);
     const str = std.fmt.allocPrint(alloc, "{s} warning: {s}\n", .{ timestamp, msg }) catch {
@@ -136,6 +167,9 @@ pub fn logWaring(msg: []const u8) void {
 }
 
 pub fn logWaringFmt(comptime fmt: []const u8, args: anytype) void {
+    if (log_level > LOG_LEVEL_WARNING) {
+        return;
+    }
     const alloc = std.heap.page_allocator;
     const timestamp = currentTimstampStr(alloc);
     const str = std.fmt.allocPrint(
@@ -150,6 +184,9 @@ pub fn logWaringFmt(comptime fmt: []const u8, args: anytype) void {
 }
 
 pub fn logError(msg: []const u8) void {
+    if (log_level > LOG_LEVEL_ERROR) {
+        return;
+    }
     const alloc = std.heap.page_allocator;
     const timestamp = currentTimstampStr(alloc);
     const str = std.fmt.allocPrint(alloc, "{s} error: {s}\n", .{ timestamp, msg }) catch {
@@ -160,6 +197,9 @@ pub fn logError(msg: []const u8) void {
 }
 
 pub fn logErrorFmt(comptime fmt: []const u8, args: anytype) void {
+    if (log_level > LOG_LEVEL_ERROR) {
+        return;
+    }
     const alloc = std.heap.page_allocator;
     const timestamp = currentTimstampStr(alloc);
     const str = std.fmt.allocPrint(

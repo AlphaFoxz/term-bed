@@ -3,3 +3,7 @@ export interface Disposable {
     [Symbol.dispose](): void;
     [Symbol.asyncDispose](): void;
 }
+
+export interface WidgetLike {
+    readonly id: number;
+}

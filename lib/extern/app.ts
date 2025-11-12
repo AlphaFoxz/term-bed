@@ -1,24 +1,46 @@
-import { dlopen, FFIType, suffix, type Pointer } from 'bun:ffi';
-import { toCstring } from './util';
+import { dlopen, FFIType, type Pointer } from 'bun:ffi';
+import { fetchDllPath, toCstring } from './util';
 
-const dllPath = `./term-native/zig-out/bin/tui_app.${suffix}`;
-console.debug('dll path:', dllPath);
-const lib = dlopen(dllPath, {
-    runApp: { returns: FFIType.pointer, args: [FFIType.cstring] },
-    exitApp: { returns: FFIType.void, args: [FFIType.pointer] },
+const lib = dlopen(fetchDllPath(), {
+    setupLogger: { returns: FFIType.void, args: [FFIType.cstring, FFIType.i32, FFIType.bool] },
+    createApp: { returns: FFIType.pointer, args: [] },
+    destroyApp: { returns: FFIType.void, args: [FFIType.pointer] },
     forceRenderApp: { returns: FFIType.pointer, args: [FFIType.pointer] },
 }).symbols;
 
-const logFilePath = process.cwd();
+export type LogLevel = 'debug' | 'info' | 'warning' | 'error';
+
+export interface TuiAppOptions {
+    logLevel?: LogLevel;
+    logFilePath?: string;
+    clearLog?: boolean;
+}
 
 export default {
-    runApp: async () => {
-        await Bun.write(logFilePath + '/term-bed.log', '');
-        return lib.runApp(toCstring(logFilePath));
+    setupLogger: (logFilePath: string, logLevel: LogLevel) => {
+        let logLvl: number;
+        switch (logLevel) {
+            case 'debug':
+                logLvl = 0;
+                break;
+            case 'info':
+                logLvl = 1;
+                break;
+            case 'warning':
+                logLvl = 2;
+                break;
+            case 'error':
+                logLvl = 3;
+                break;
+        }
+        lib.setupLogger(toCstring(logFilePath), logLvl);
     },
-    exitApp: async (appPtr: Pointer | null) => {
+    createApp: async () => {
+        return lib.createApp();
+    },
+    destroyApp: async (appPtr: Pointer | null) => {
         if (!appPtr) return;
-        lib.exitApp(appPtr);
+        lib.destroyApp(appPtr);
     },
     forceRenderApp: lib.forceRenderApp,
 };

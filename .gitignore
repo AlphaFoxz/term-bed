@@ -4,3 +4,7 @@ node_modules/
 
 zig-out
 .zig-cache
+
+*.exe
+*.dll
+*.pdb

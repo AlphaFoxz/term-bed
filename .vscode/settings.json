@@ -10,19 +10,20 @@
         "prettier.singleQuote": true,
         "prettier.tabWidth": 4
     },
-    // "zig.testArgs": [
-    //     "build",
-    //     "test",
-    //     "-Dtest-filter=${filter}"
-    // ],
-    // "zig.buildOnSaveArgs": [
-    //     "--build-file",
-    //     "${workspaceFolder}/term-native/build.zig"
-    // ],
-    // "zig.debugTestArgs": [
-    //     "test",
-    //     "-femit-bin",
-    //     "${workspaceFolder}/term-native/zig-out/bin",
-    // ]
-    // "zig.path": "${workspaceFolder}/term-native/build.zig"
+    "zig.debugTestArgs": [
+        "test",
+        "${path}",
+        "--test-filter",
+        "${filter}",
+        "-lc",
+        "--test-no-exec",
+        "-femit-bin=${binaryPath}"
+    ],
+    "zig.testArgs": [
+        "test",
+        "--test-filter",
+        "${filter}",
+        "${path}",
+        "-lc",
+    ]
 }

@@ -1,6 +1,7 @@
 const builtin = @import("builtin");
 const std = @import("std");
 const Io = std.Io;
+const glo_alloc = @import("./core/glo_alloc.zig");
 const std_io = @import("./core/std_io.zig");
 const ansi = @import("./ansi_util.zig");
 const string = @import("./core/string.zig");
@@ -15,13 +16,19 @@ pub fn forceRenderApp(app_ptr: *TuiApp) void {
     if (is_windows) {
         setWindowsUTF8() catch {};
     }
-    ansi.format.updateStyle(writer, ansi.style.Style{ .background = ansi.style.Color{ .RGB = ansi.style.ColorRGB{
-        .r = 127,
-        .g = 96,
-        .b = 254,
-    } } }, null) catch unreachable;
+    ansi.format.updateStyle(writer, ansi.style.Style{
+        .background = ansi.style.Color{ .RGB = ansi.style.ColorRGB{
+            .r = 127,
+            .g = 96,
+            .b = 254,
+        } },
+        .foreground = .White,
+    }, null) catch unreachable;
 
-    const str = string.String.initFromSclice("Hello world 你好");
+    const str = string.String.initFromSclice(
+        "Hello world 你好⊿ " ++ "― " ++ "= " ++ "○ " ++ "× \n" ++
+            "Hello world 你好⊿ ↙ ↓ △ ↗ ↑ ✖ ║ ══ ――",
+    );
     defer str.deinit();
     var iter = str.iter();
 
@@ -34,17 +41,18 @@ pub fn forceRenderApp(app_ptr: *TuiApp) void {
                 should_skip -= 1;
                 continue;
             }
-            const peeked = iter.preview();
+            var peeked = iter.next();
             if (peeked == null) {
                 ansi.writeAllToPos(writer, col, row, " ") catch unreachable;
                 continue;
+            } else if (peeked.?.len == 1 and peeked.?[0] == '\n') {
+                peeked = " ";
             }
             const char_len: u16 = @intCast(string.getDisplayWidthStd(peeked.?));
             should_skip = char_len - 1;
             compute_col += char_len;
             logger.logDebugFmt("字符: {s}, 长度: {}", .{ peeked.?, char_len });
             ansi.writeAllToPos(writer, col, row, peeked.?) catch unreachable;
-            _ = iter.next();
         }
     }
     ansi.cursor.setCursor(writer, 0, 0) catch unreachable;
@@ -92,6 +100,7 @@ test "cn char len" {
 }
 
 test "string iter" {
+    glo_alloc.debugMode();
     const str = string.String.initFromSclice("Hello world 你好");
     defer str.deinit();
     const verify = [_][]const u8{
@@ -112,7 +121,9 @@ test "string iter" {
     };
     var iter = str.iter();
 
-    for (0..verify.len) |_| {
-        try std.testing.expect(std.mem.eql(u8, iter.next().?, verify[iter.index]));
+    for (0..verify.len) |i| {
+        const next = iter.next().?;
+        const v = verify[i];
+        try std.testing.expect(std.mem.eql(u8, next, v));
     }
 }

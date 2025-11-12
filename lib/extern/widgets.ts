@@ -1,11 +1,14 @@
-import { dlopen, FFIType, suffix, type Pointer } from 'bun:ffi';
-import { toCstring } from './util';
+import { dlopen, FFIType, type Pointer } from 'bun:ffi';
+import { fetchDllPath, toCstring } from './util';
 
-const dllPath = `./term-native/zig-out/bin/tui_app.${suffix}`;
-const lib = dlopen(dllPath, {
+const lib = dlopen(fetchDllPath(), {
+    createSceneWidget: {
+        returns: FFIType.pointer,
+        args: [FFIType.bool],
+    },
     createTextWidget: {
         returns: FFIType.pointer,
-        args: [FFIType.u16, FFIType.u16, FFIType.u16, FFIType.u16, FFIType.cstring],
+        args: [FFIType.u16, FFIType.u16, FFIType.u16, FFIType.u16, FFIType.bool, FFIType.cstring],
     },
     destroyWidget: {
         returns: FFIType.void,
@@ -13,24 +16,31 @@ const lib = dlopen(dllPath, {
     },
 }).symbols;
 
-export interface RectWidgetOptions {
+export interface RectWidgetStyleOptions {
     x?: number;
     y?: number;
     width: number;
     height: number;
+    visible?: boolean;
 }
 
-export interface TextWidgetOptions extends RectWidgetOptions {
+export interface TextWidgetStyleOptions extends RectWidgetStyleOptions {
     text: string;
 }
 
+export interface SceneWidgetStyleOptions extends Pick<RectWidgetStyleOptions, 'visible'> {}
+
 export default {
-    createTextWidget: (options: TextWidgetOptions): Pointer | null => {
+    createSceneWidget: (options?: SceneWidgetStyleOptions) => {
+        return lib.createSceneWidget(options?.visible || true);
+    },
+    createTextWidget: (options: TextWidgetStyleOptions): Pointer | null => {
         return lib.createTextWidget(
             options.x || 0,
             options.y || 0,
             options.width,
             options.height,
+            options.visible || true,
             toCstring(options.text)
         );
     },

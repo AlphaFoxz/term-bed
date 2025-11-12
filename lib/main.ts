@@ -1,30 +1,12 @@
-import { App } from './app';
-import Text from './widgets/Text';
+import { createApp, widgets } from './';
 
-const app = new App();
-
-const counter = new Text({
-    x: 0,
-    y: 0,
-    width: 20,
-    height: 1,
-    text: 'Count: 0',
-});
-const TIPS1 = new Text({
-    x: 0,
-    y: 0,
-    width: 20,
-    height: 1,
-    text: 'Press - / + to change count.',
-});
-const TIPS2 = new Text({
-    x: 0,
-    y: 1,
-    width: 20,
-    height: 1,
-    text: `Press Ctrl+C to exit.`,
-});
-app.startApp();
+const app = createApp();
+const scene = app.createScene();
+scene.mount(widgets.createText('Count: 0'));
+scene.mount(widgets.createText('Press - / + to change count.'));
+scene.mount(widgets.createText('Press Ctrl+C to exit.'));
+app.switchScene(scene);
+app.start();
 
 let count = 0;
 process.stdin.on('data', async (data) => {
@@ -32,6 +14,6 @@ process.stdin.on('data', async (data) => {
     if (input === '-') count -= 1;
     if (input === '+') count += 1;
     if (input === '\u0003') {
-        await app.stopApp();
+        await app.stop();
     }
 });
