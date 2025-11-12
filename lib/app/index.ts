@@ -62,6 +62,6 @@ class App implements Disposable {
     }
 }
 
-export function createApp() {
-    return new App();
+export function createApp(options?: TuiAppOptions) {
+    return new App(options);
 }

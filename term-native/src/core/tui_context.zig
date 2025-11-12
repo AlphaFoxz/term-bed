@@ -2,7 +2,6 @@ const std = @import("std");
 const builtin = @import("builtin");
 const std_io = @import("./std_io.zig");
 const logger = @import("./logger.zig");
-const TuiRect = @import("./widgets/common.zig").TuiRect;
 const err = @import("./error.zig");
 const glo_alloc = @import("./glo_alloc.zig");
 
@@ -26,6 +25,13 @@ pub const TuiContext = struct {
     pub fn deinit(self: *TuiContext) void {
         defer self.alloc.destroy(self);
     }
+};
+
+pub const TuiRect = struct {
+    x: TuiScale,
+    y: TuiScale,
+    rows: TuiScale,
+    cols: TuiScale,
 };
 
 fn detectScreenRect() TuiRect {

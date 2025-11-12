@@ -16,7 +16,7 @@ pub export fn setupLogger(cdir_path: [*:0]const u8, log_level: logger.LOG_LEVEL)
         std.log.err("Out of memory", .{});
         std.process.exit(1);
     };
-    return logger.setup(dir_path, log_level);
+    return logger.load(dir_path, log_level);
 }
 
 pub export fn createApp() *tui_app.TuiApp {
@@ -34,18 +34,20 @@ pub export fn forceRenderApp(app_ptr: *tui_app.TuiApp) void {
 }
 
 // ======================== widgets =======================
-pub export fn createSceneWidget(visible: bool) *widgets.scene.Scene {
-    return widgets.scene.createScene(visible);
+pub export fn createSceneWidget(visible: bool) *widgets.Widget {
+    var w: widgets.Widget = .{ .scene = widgets.scene.Scene.init(visible) };
+    return &w;
 }
 
-pub export fn createTextWidget(x: u16, y: u16, width: u16, height: u16, visible: bool, cstr: [*:0]const u8) *widgets.text.Text {
+pub export fn createTextWidget(x: u16, y: u16, width: u16, height: u16, visible: bool, cstr: [*:0]const u8) *widgets.Widget {
     const text = String.initFromCSclice(cstr);
-    return widgets.text.createText(x, y, width, height, visible, text);
+    var w: widgets.Widget = .{ .text = widgets.text.Text.init(x, y, width, height, visible, text) };
+    return &w;
 }
 
-pub export fn destroyWidget(widget_ptr: ?*widgets.common.Widget) void {
+pub export fn destroyWidget(widget_ptr: ?*widgets.Widget) void {
     if (widget_ptr == null) {} else {
-        widgets.destroyWidget(widget_ptr.?);
+        widget_ptr.?.deinit();
     }
 }
 

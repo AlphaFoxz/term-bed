@@ -37,7 +37,7 @@ pub fn createApp() *TuiApp {
     const context = tui_context.TuiContext.init(glo_alloc.allocator());
     const app_ptr = TuiApp.init(context);
     input.startListening();
-    logger.logInfo("TuiApp started");
+    logger.logInfo("TuiApp created");
     return app_ptr;
 }
 
@@ -49,5 +49,5 @@ pub fn destroyApp(app: *TuiApp) void {
     app.deinit();
     ansi.clear.clearScreenAndFlush(writer) catch unreachable;
     std_io.flushAll();
-    logger.logWaring("TuiApp destroyed");
+    logger.logWarning("TuiApp destroyed");
 }

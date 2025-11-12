@@ -7,16 +7,19 @@ const err = @import("../error.zig");
 pub const Text = struct {
     alloc: std.mem.Allocator,
     id: u64,
-    rect: wdt_common.TuiRect,
+    rect: wdt_common.WidgetInfo,
     visible: bool,
     text: *String,
 
     pub fn init(
-        alloc: std.mem.Allocator,
-        rect: wdt_common.TuiRect,
+        x: u16,
+        y: u16,
+        width: u16,
+        height: u16,
         visible: bool,
         text: *String,
     ) *Text {
+        const alloc = glo_alloc.allocator();
         const text_prt = alloc.create(Text) catch {
             std.log.err("Out of memory", .{});
             std.process.exit(1);
@@ -24,7 +27,14 @@ pub const Text = struct {
         text_prt.* = Text{
             .alloc = alloc,
             .id = wdt_common.genId(),
-            .rect = rect,
+            .rect = wdt_common.WidgetInfo{
+                .x = x,
+                .y = y,
+                .width = width,
+                .height = height,
+                .visible = visible,
+                .z_index = 0,
+            },
             .visible = visible,
             .text = text,
         };
@@ -32,45 +42,7 @@ pub const Text = struct {
     }
 
     pub fn deinit(self: *Text) void {
-        defer self.text.deinit();
-        self.alloc.allocator().destroy(self);
-    }
-
-    pub fn getRect(self: *Text) *wdt_common.TuiRect {
-        return &self.rect;
-    }
-    pub fn setPos(self: *Text, x: u16, y: u16) void {
-        self.rect.x = x;
-        self.rect.y = y;
-    }
-    pub fn setWidth(self: *Text, width: u16) void {
-        self.rect.cols = width;
-    }
-    pub fn setHeight(self: *Text, height: u16) void {
-        self.rect.rows = height;
+        defer self.alloc.destroy(self);
+        self.text.deinit();
     }
 };
-
-pub fn createText(
-    x: u16,
-    y: u16,
-    width: u16,
-    height: u16,
-    visible: bool,
-    text: *String,
-) *Text {
-    const alloc = glo_alloc.allocator();
-    const text_ptr = Text.init(
-        alloc,
-        wdt_common.TuiRect{
-            .x = x,
-            .y = y,
-            .rows = height,
-            .cols = width,
-        },
-        visible,
-        text,
-    );
-
-    return text_ptr;
-}

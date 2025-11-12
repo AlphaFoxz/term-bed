@@ -8,9 +8,18 @@ pub const LOG_LEVEL_ERROR: u8 = 3;
 
 var log_level: LOG_LEVEL = LOG_LEVEL_INFO;
 var log_dir_path: []const u8 = undefined;
-var log_path_init: bool = false;
+var log_path_initialized: bool = false;
 
-pub fn setup(dir_path: []const u8, lvl: LOG_LEVEL) void {
+var log_dir: std.fs.Dir = undefined;
+var log_file: std.fs.File = undefined;
+const buf_size = 256;
+var log_buf: [buf_size]u8 = undefined;
+var writer: std.fs.File.Writer = undefined;
+
+const flush_on_error = true;
+const flush_on_warning = true;
+
+pub fn load(dir_path: []const u8, lvl: LOG_LEVEL) void {
     switch (log_level) {
         0...4 => {
             log_level = lvl;
@@ -20,11 +29,171 @@ pub fn setup(dir_path: []const u8, lvl: LOG_LEVEL) void {
             std.process.exit(1);
         },
     }
-    if (log_path_init) {
+    if (log_path_initialized) {
         return;
     }
     log_dir_path = dir_path;
-    log_path_init = true;
+    // std.fs.makeDirAbsolute(log_dir_path) catch unreachable;
+    log_dir = std.fs.openDirAbsolute(log_dir_path, .{}) catch {
+        ioError();
+    };
+    log_file = log_dir.createFile("term-bed.log", .{
+        .truncate = false,
+        // .lock = .exclusive,
+    }) catch {
+        ioError();
+    };
+    log_file.seekFromEnd(0) catch {
+        ioError();
+    };
+    writer = log_file.writerStreaming(&log_buf);
+    log_path_initialized = true;
+}
+
+pub fn unload() void {
+    if (!log_path_initialized) {
+        return;
+    }
+    writer.flush() catch {
+        ioError();
+    };
+    log_file.close();
+    log_dir.close();
+    log_path_initialized = false;
+}
+
+inline fn currentTimstampStr() []const u8 {
+    var buf: [32]u8 = undefined;
+    const now = std.time.timestamp();
+    const epoch_seconds = @as(u64, @intCast(now));
+    const epoch_day = std.time.epoch.EpochSeconds{ .secs = epoch_seconds };
+    const ds = epoch_day.getDaySeconds();
+    const yd = epoch_day.getEpochDay().calculateYearDay();
+    const md = yd.calculateMonthDay();
+    const year = yd.year;
+    const mon = md.month.numeric();
+    const day = md.day_index + 1;
+    const h = ds.getHoursIntoDay();
+    const m = ds.getMinutesIntoHour();
+    const s = ds.getSecondsIntoMinute();
+    const out = std.fmt.bufPrint(&buf, "[{d:0>4}-{d:0>2}-{d:0>2} {d:0>2}:{d:0>2}:{d:0>2}]", .{ year, mon, day, h, m, s }) catch unreachable;
+    return out;
+}
+
+fn write(msg: []const u8, need_flush: bool) void {
+    if (!log_path_initialized) {
+        return;
+    }
+    log_file.seekFromEnd(0) catch ioError();
+    var w = &writer.interface;
+    _ = w.writeAll(msg) catch ioError();
+    if (need_flush) {
+        w.flush() catch ioError();
+    }
+}
+
+pub fn logDebug(msg: []const u8) void {
+    if (log_level > LOG_LEVEL_DEBUG) {
+        return;
+    }
+    const alloc = std.heap.page_allocator;
+    const timestamp = currentTimstampStr();
+    const str = std.fmt.allocPrint(alloc, "{s} debug: {s}\n", .{ timestamp, msg }) catch outOfMemory();
+    defer alloc.free(str);
+    write(str, false);
+}
+
+pub fn logDebugFmt(comptime fmt: []const u8, args: anytype) void {
+    if (log_level > LOG_LEVEL_DEBUG) {
+        return;
+    }
+    const alloc = std.heap.page_allocator;
+    const timestamp = currentTimstampStr();
+    const str = std.fmt.allocPrint(
+        alloc,
+        "{s} debug: " ++ fmt ++ "\n",
+        .{timestamp} ++ args,
+    ) catch outOfMemory();
+    defer alloc.free(str);
+    write(str, false);
+}
+
+pub fn logInfo(msg: []const u8) void {
+    if (log_level > LOG_LEVEL_INFO) {
+        return;
+    }
+    const alloc = std.heap.page_allocator;
+    const timestamp = currentTimstampStr();
+    const str = std.fmt.allocPrint(alloc, "{s} info: {s}\n", .{ timestamp, msg }) catch outOfMemory();
+    defer alloc.free(str);
+    write(str, false);
+}
+
+pub fn logInfoFmt(comptime fmt: []const u8, args: anytype) void {
+    if (log_level > LOG_LEVEL_INFO) {
+        return;
+    }
+    const alloc = std.heap.page_allocator;
+    const timestamp = currentTimstampStr();
+    const str = std.fmt.allocPrint(
+        alloc,
+        "{s} info: " ++ fmt ++ "\n",
+        .{timestamp} ++ args,
+    ) catch outOfMemory();
+    defer alloc.free(str);
+    write(str, false);
+}
+
+pub fn logWarning(msg: []const u8) void {
+    if (log_level > LOG_LEVEL_WARNING) {
+        return;
+    }
+    const alloc = std.heap.page_allocator;
+    const timestamp = currentTimstampStr();
+    const str = std.fmt.allocPrint(alloc, "{s} warning: {s}\n", .{ timestamp, msg }) catch outOfMemory();
+    defer alloc.free(str);
+    write(str, flush_on_warning);
+}
+
+pub fn logWaringFmt(comptime fmt: []const u8, args: anytype) void {
+    if (log_level > LOG_LEVEL_WARNING) {
+        return;
+    }
+    const alloc = std.heap.page_allocator;
+    const timestamp = currentTimstampStr();
+    const str = std.fmt.allocPrint(
+        alloc,
+        "{s} warning: " ++ fmt ++ "\n",
+        .{timestamp} ++ args,
+    ) catch outOfMemory();
+    defer alloc.free(str);
+    write(str, flush_on_warning);
+}
+
+pub fn logError(msg: []const u8) void {
+    if (log_level > LOG_LEVEL_ERROR) {
+        return;
+    }
+    const alloc = std.heap.page_allocator;
+    const timestamp = currentTimstampStr();
+    const str = std.fmt.allocPrint(alloc, "{s} error: {s}\n", .{ timestamp, msg }) catch outOfMemory();
+    defer alloc.free(str);
+    write(str, flush_on_error);
+}
+
+pub fn logErrorFmt(comptime fmt: []const u8, args: anytype) void {
+    if (log_level > LOG_LEVEL_ERROR) {
+        return;
+    }
+    const alloc = std.heap.page_allocator;
+    const timestamp = currentTimstampStr();
+    const str = std.fmt.allocPrint(
+        alloc,
+        "{s} error: " ++ fmt ++ "\n",
+        .{timestamp} ++ args,
+    ) catch outOfMemory();
+    defer alloc.free(str);
+    write(str, flush_on_error);
 }
 
 fn ioError() noreturn {
@@ -35,180 +204,4 @@ fn ioError() noreturn {
 fn outOfMemory() noreturn {
     std.log.err("Out of memory", .{});
     std.process.exit(1);
-}
-
-fn currentTimstampStr(alloc: std.mem.Allocator) []const u8 {
-    const timestamp = std.time.timestamp();
-    // 转换为 epoch 秒并分解为日期时间
-    const epoch_seconds = @as(u64, @intCast(timestamp));
-    const epoch_day = std.time.epoch.EpochSeconds{ .secs = epoch_seconds };
-    const day_seconds = epoch_day.getDaySeconds();
-    const year_day = epoch_day.getEpochDay().calculateYearDay();
-    const month_day = year_day.calculateMonthDay();
-
-    // 提取各个部分
-    const year = year_day.year;
-    const month = month_day.month.numeric();
-    const day = month_day.day_index + 1;
-    const hour = day_seconds.getHoursIntoDay();
-    const minute = day_seconds.getMinutesIntoHour();
-    const second = day_seconds.getSecondsIntoMinute();
-
-    // 格式化输出
-    const str = std.fmt.allocPrint(
-        alloc,
-        "[{d:0>4}-{d:0>2}-{d:0>2} {d:0>2}:{d:0>2}:{d:0>2}]",
-        .{ year, month, day, hour, minute, second },
-    ) catch unreachable;
-    return str;
-}
-
-fn write(msg: []const u8) void {
-    if (!log_path_init) {
-        return;
-    }
-    // std.fs.makeDirAbsolute(log_dir_path) catch unreachable;
-    var dir = std.fs.openDirAbsolute(log_dir_path, .{}) catch {
-        ioError();
-    };
-    defer dir.close();
-    const file = dir.createFile("term-bed.log", .{
-        .truncate = false,
-        // .lock = .exclusive,
-    }) catch {
-        ioError();
-    };
-    defer file.close();
-    file.seekFromEnd(0) catch {
-        ioError();
-    };
-    var buffer: [256]u8 = undefined;
-    var writer_inter = file.writerStreaming(&buffer);
-    const writer = &writer_inter.interface;
-    _ = writer.write(msg) catch {
-        ioError();
-    };
-    writer.flush() catch {
-        ioError();
-    };
-}
-
-pub fn logDebug(msg: []const u8) void {
-    if (log_level > LOG_LEVEL_DEBUG) {
-        return;
-    }
-    const alloc = std.heap.page_allocator;
-    const timestamp = currentTimstampStr(alloc);
-    const str = std.fmt.allocPrint(alloc, "{s} debug: {s}\n", .{ timestamp, msg }) catch {
-        outOfMemory();
-    };
-    defer alloc.free(str);
-    write(str);
-}
-
-pub fn logDebugFmt(comptime fmt: []const u8, args: anytype) void {
-    if (log_level > LOG_LEVEL_DEBUG) {
-        return;
-    }
-    const alloc = std.heap.page_allocator;
-    const timestamp = currentTimstampStr(alloc);
-    const str = std.fmt.allocPrint(
-        alloc,
-        "{s} debug: " ++ fmt ++ "\n",
-        .{timestamp} ++ args,
-    ) catch {
-        outOfMemory();
-    };
-    defer alloc.free(str);
-    write(str);
-}
-
-pub fn logInfo(msg: []const u8) void {
-    if (log_level > LOG_LEVEL_INFO) {
-        return;
-    }
-    const alloc = std.heap.page_allocator;
-    const timestamp = currentTimstampStr(alloc);
-    const str = std.fmt.allocPrint(alloc, "{s} info: {s}\n", .{ timestamp, msg }) catch {
-        outOfMemory();
-    };
-    defer alloc.free(str);
-    write(str);
-}
-
-pub fn logInfoFmt(comptime fmt: []const u8, args: anytype) void {
-    if (log_level > LOG_LEVEL_INFO) {
-        return;
-    }
-    const alloc = std.heap.page_allocator;
-    const timestamp = currentTimstampStr(alloc);
-    const str = std.fmt.allocPrint(
-        alloc,
-        "{s} info: " ++ fmt ++ "\n",
-        .{timestamp} ++ args,
-    ) catch {
-        outOfMemory();
-    };
-    defer alloc.free(str);
-    write(str);
-}
-
-pub fn logWaring(msg: []const u8) void {
-    if (log_level > LOG_LEVEL_WARNING) {
-        return;
-    }
-    const alloc = std.heap.page_allocator;
-    const timestamp = currentTimstampStr(alloc);
-    const str = std.fmt.allocPrint(alloc, "{s} warning: {s}\n", .{ timestamp, msg }) catch {
-        outOfMemory();
-    };
-    defer alloc.free(str);
-    write(str);
-}
-
-pub fn logWaringFmt(comptime fmt: []const u8, args: anytype) void {
-    if (log_level > LOG_LEVEL_WARNING) {
-        return;
-    }
-    const alloc = std.heap.page_allocator;
-    const timestamp = currentTimstampStr(alloc);
-    const str = std.fmt.allocPrint(
-        alloc,
-        "{s} warning: " ++ fmt ++ "\n",
-        .{timestamp} ++ args,
-    ) catch {
-        outOfMemory();
-    };
-    defer alloc.free(str);
-    write(str);
-}
-
-pub fn logError(msg: []const u8) void {
-    if (log_level > LOG_LEVEL_ERROR) {
-        return;
-    }
-    const alloc = std.heap.page_allocator;
-    const timestamp = currentTimstampStr(alloc);
-    const str = std.fmt.allocPrint(alloc, "{s} error: {s}\n", .{ timestamp, msg }) catch {
-        outOfMemory();
-    };
-    defer alloc.free(str);
-    write(str);
-}
-
-pub fn logErrorFmt(comptime fmt: []const u8, args: anytype) void {
-    if (log_level > LOG_LEVEL_ERROR) {
-        return;
-    }
-    const alloc = std.heap.page_allocator;
-    const timestamp = currentTimstampStr(alloc);
-    const str = std.fmt.allocPrint(
-        alloc,
-        "{s} error: " ++ fmt ++ "\n",
-        .{timestamp} ++ args,
-    ) catch {
-        outOfMemory();
-    };
-    defer alloc.free(str);
-    write(str);
 }

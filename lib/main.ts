@@ -1,6 +1,6 @@
 import { createApp, widgets } from './';
 
-const app = createApp();
+const app = createApp({ logLevel: 'debug', clearLog: true });
 const scene = app.createScene();
 scene.mount(widgets.createText('Count: 0'));
 scene.mount(widgets.createText('Press - / + to change count.'));
