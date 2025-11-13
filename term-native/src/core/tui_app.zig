@@ -6,6 +6,7 @@ const std_io = @import("./std_io.zig");
 const glo_alloc = @import("./glo_alloc.zig");
 const input = @import("../input.zig");
 const logger = @import("./logger.zig");
+const event_bus = @import("./event_bus.zig");
 
 pub const TuiApp = struct {
     alloc: std.mem.Allocator,
@@ -31,6 +32,7 @@ pub const TuiApp = struct {
 
 pub fn createApp() *TuiApp {
     std_io.init();
+    event_bus.event_bus_setup();
     const writer: *Io.Writer = &std_io.writer.interface;
     ansi.terminal.enterAlternateScreen(writer) catch unreachable;
     ansi.cursor.hideCursorAndFlush(writer) catch unreachable;
