@@ -2,7 +2,7 @@ import path from 'path';
 import { type Pointer, CString, suffix } from 'bun:ffi';
 import Bun from 'bun';
 
-const encoder = new TextEncoder();
+const encoder = new TextEncoder('utf-8');
 
 export function toCstring(str: string): Uint8Array {
     const bytes = encoder.encode(str);
