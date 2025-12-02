@@ -2,12 +2,18 @@ import { cp } from 'fs/promises';
 import path from 'path';
 import { suffix } from 'bun:ffi';
 
-const appName = 'tui_app';
+const appName = 'term_bed';
 
 const rootDir = path.resolve(import.meta.dir, '..');
 const tasks = [
-    { from: `/lib/${appName}.${suffix}`, to: `/dist/${appName}.${suffix}` },
-    { from: `/lib/${appName}.pdb`, to: `/dist/${appName}.pdb` },
+    {
+        from: `/node_modules/native/zig-out/bin/${appName}.${suffix}`,
+        to: `/${appName}.${suffix}`,
+    },
+    {
+        from: `/node_modules/native/zig-out/bin/${appName}.pdb`,
+        to: `/${appName}.pdb`,
+    },
 ];
 
 for (const task of tasks) {

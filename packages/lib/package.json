@@ -1,0 +1,14 @@
+{
+    "name": "lib",
+    "main": "src/index.ts",
+    "scripts": {
+        "build": "bun build --target=bun --production ./src/index.ts --outfile ./dist/index.bun.mjs"
+    },
+    "devDependencies": {
+        "@types/bun": "^1.3.1",
+        "native": "workspace:*"
+    },
+    "peerDependencies": {
+        "typescript": "^5.9.3"
+    }
+}

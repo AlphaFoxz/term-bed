@@ -7,7 +7,7 @@ pub fn build(b: *std.Build) void {
     });
 
     const lib = b.addLibrary(.{
-        .name = "tui_app",
+        .name = "term_bed",
         .root_module = b.createModule(.{
             .root_source_file = b.path("src/exports.zig"),
             .target = target,

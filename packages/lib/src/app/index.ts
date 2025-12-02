@@ -13,17 +13,19 @@ class App implements Disposable {
     #ptr: any;
     #deferred = new Deferred<void>();
     #logFileDir: string;
+    #debugMode = false;
 
     constructor(options?: TuiAppOptions) {
         const logLevel: LogLevel = options?.logLevel || 'info';
-        this.#logFileDir = options?.logFilePath || path.resolve(path.dirname(Bun.main), '');
+        this.#logFileDir = options?.logFilePath || path.dirname(Bun.main);
         const clearLog = options?.clearLog || false;
-        const debugMode = options?.debugMode || false;
+        this.#debugMode = options?.debugMode || false;
         if (!fs.existsSync(this.#logFileDir)) {
             fs.mkdirSync(this.#logFileDir);
         }
         if (!fs.existsSync(this.#logFileDir + '/term-bed.log') || clearLog) {
             fs.writeFileSync(this.#logFileDir + '/term-bed.log', '');
+            fs.writeFileSync(this.#logFileDir + '/term-front.log', '');
         }
         app.setupLogger(this.#logFileDir, logLevel);
     }
@@ -31,12 +33,23 @@ class App implements Disposable {
     async start() {
         this.#ptr = await app.createApp();
         app.forceRenderApp(this.#ptr);
-        EventBus.on(EventType.KeyboardEvent, (data) => {
-            appendFile(this.#logFileDir + '/term-front.log', `按键事件：${JSON.stringify(data)}\n`);
-            // if (data.char === 'q') {
-            this.stop();
-            // }
-        });
+        if (this.#debugMode) {
+            EventBus.on(EventType.KeyboardEvent, async (data) => {
+                await appendFile(
+                    this.#logFileDir + '/term-front.log',
+                    `按键事件：${JSON.stringify(data)}\n`
+                );
+                if (data.key === 'q' || data.key === 'Q') {
+                    this.stop();
+                }
+            });
+            EventBus.on(EventType.WheelEvent, async (data) => {
+                await appendFile(
+                    this.#logFileDir + '/term-front.log',
+                    `鼠标事件：${JSON.stringify(data)}\n`
+                );
+            });
+        }
         EventBus.start();
         await this.#deferred.promise;
     }

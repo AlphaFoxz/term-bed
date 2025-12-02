@@ -1,0 +1,14 @@
+{
+    "name": "playground",
+    "scripts": {
+        "dev": "bun run ./main.ts",
+        "build": "bun run sync && bun build --target=bun --production ./main.ts --outfile ./dist/myapp.bun.mjs",
+        "sync": "bun run ./scripts/sync.ts"
+    },
+    "dependencies": {
+        "lib": "workspace:*"
+    },
+    "devDependencies": {
+        "native": "workspace:*"
+    }
+}

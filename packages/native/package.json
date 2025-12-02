@@ -1,0 +1,10 @@
+{
+    "name": "native",
+    "private": true,
+    "files": [
+        "zig-out/bin/*"
+    ],
+    "scripts": {
+        "build": "zig build"
+    }
+}

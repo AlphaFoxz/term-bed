@@ -7,8 +7,8 @@ const QUEUE_MASK = QUEUE_SIZE - 1;
 
 // ============ 事件头部 ============
 const EventHeader = extern struct {
-    event_type: u16, // 事件类型ID
-    payload_len: u16, // 实际负载长度
+    event_type: u32, // 事件类型ID
+    payload_len: u32, // 实际负载长度
     sequence: u64, // 序列号（可选，用于检测丢失）
 };
 
@@ -19,8 +19,9 @@ pub const EventSlot = extern struct {
 };
 
 pub const EventType = enum(u16) {
-    KeyEvent = 1,
+    KeyboardEvent = 1,
     MouseEvent = 2,
+    WheelEvent = 3,
 };
 
 // ============ SPSC 无锁环形队列 ============

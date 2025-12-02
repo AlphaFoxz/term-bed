@@ -1,6 +1,6 @@
 import path from 'path';
+import fs from 'fs';
 import { type Pointer, CString, suffix } from 'bun:ffi';
-import Bun from 'bun';
 
 const encoder = new TextEncoder('utf-8');
 
@@ -19,8 +19,15 @@ export function cToString(ptr: Pointer, length: number): string {
 let dllPath: string;
 export function fetchDllPath() {
     if (!dllPath) {
-        dllPath = path.resolve(path.dirname(Bun.main), `tui_app.${suffix}`);
-        console.debug('dllPath', dllPath);
+        dllPath = path.resolve(path.dirname(Bun.main), `term_bed.${suffix}`);
+        if (fs.existsSync(dllPath)) {
+            return dllPath;
+        }
+        dllPath = path.resolve(import.meta.dir, `term_bed.${suffix}`);
+        if (fs.existsSync(dllPath)) {
+            return dllPath;
+        }
+        // TODO-wong: 从PATH中查找
     }
     return dllPath;
 }

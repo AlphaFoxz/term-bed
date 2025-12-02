@@ -1,5 +1,0 @@
-<screen>
-    <text x="0" y="0" height="1", width="20">你好，世界</text>
-    <text x="0" y="0" height="1", width="20">你好，世界</text>
-    <loading v-if=""></loading>
-</screen>

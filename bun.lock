@@ -14,6 +14,28 @@
         "typescript": "^5.9.3",
       },
     },
+    "packages/lib": {
+      "name": "lib",
+      "devDependencies": {
+        "@types/bun": "^1.3.1",
+        "native": "workspace:*",
+      },
+      "peerDependencies": {
+        "typescript": "^5.9.3",
+      },
+    },
+    "packages/native": {
+      "name": "native",
+    },
+    "packages/playground": {
+      "name": "playground",
+      "dependencies": {
+        "lib": "workspace:*",
+      },
+      "devDependencies": {
+        "native": "workspace:*",
+      },
+    },
   },
   "packages": {
     "@types/bun": ["@types/bun@1.3.1", "", { "dependencies": { "bun-types": "1.3.1" } }, "sha512-4jNMk2/K9YJtfqwoAa28c8wK+T7nvJFOjxI4h/7sORWcypRNxBpr+TPNaCfVWq70tLCJsqoFwcf0oI0JU/fvMQ=="],
@@ -29,6 +51,12 @@
     "bun-types": ["bun-types@1.3.1", "", { "dependencies": { "@types/node": "*" }, "peerDependencies": { "@types/react": "^19" } }, "sha512-NMrcy7smratanWJ2mMXdpatalovtxVggkj11bScuWuiOoXTiKIu2eVS1/7qbyI/4yHedtsn175n4Sm4JcdHLXw=="],
 
     "csstype": ["csstype@3.1.3", "", {}, "sha512-M1uQkMl8rQK/szD0LNhtqxIPLpimGm8sOBwU7lLnCpSbTyY3yeU1Vc7l4KT5zT4s/yOxHH5O7tIuuLOCnLADRw=="],
+
+    "lib": ["lib@workspace:packages/lib"],
+
+    "native": ["native@workspace:packages/native"],
+
+    "playground": ["playground@workspace:packages/playground"],
 
     "ts-deferred": ["ts-deferred@1.0.4", "", {}, "sha512-uE0e0mUQpqbS3VbqqauLDJ5x9kyHeMXGxRwmoXc+woXkEYWj/MiN61IsfPtlCzfxcVwlxy+S70aU05+atxeoPQ=="],
 

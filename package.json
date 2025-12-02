@@ -1,26 +1,23 @@
 {
-  "name": "term-bed",
-  "module": "index.ts",
-  "type": "module",
-  "private": true,
-  "scripts": {
-    "dev": "bun run ./lib/main.ts",
-    "build": "bun build:native && bun build:prodjs && bun sync",
-    "build:prodjs": "bun build --target=bun --production ./lib/main.ts --outfile ./dist/myapp.bun.mjs",
-    "build:devjs": "bun build --target=bun ./lib/main.ts --outfile ./dist/myapp.bun.mjs",
-    "build:pack": "bun build --compile --target=bun-windows-x64-modern ./lib/main.ts --outfile ./dist/myapp",
-    "build:native": "cd ./term-native && zig build && bun sync:zigbuild",
-    "sync": "bun run ./scripts/sync.ts",
-    "sync:zigbuild": "bun run ./scripts/sync-zigbuild.ts"
-  },
-  "devDependencies": {
-    "@types/bun": "^1.3.1"
-  },
-  "peerDependencies": {
-    "typescript": "^5.9.3"
-  },
-  "dependencies": {
-    "@vue/reactivity": "^3.5.24",
-    "ts-deferred": "^1.0.4"
-  }
+    "name": "term-bed",
+    "module": "index.ts",
+    "type": "module",
+    "private": true,
+    "scripts": {
+        "dev": "cd packages/playground && bun run dev",
+        "build": "bun run --filter './packages/*' build"
+    },
+    "devDependencies": {
+        "@types/bun": "^1.3.1"
+    },
+    "peerDependencies": {
+        "typescript": "^5.9.3"
+    },
+    "dependencies": {
+        "@vue/reactivity": "^3.5.24",
+        "ts-deferred": "^1.0.4"
+    },
+    "workspaces": [
+        "packages/*"
+    ]
 }

@@ -6,7 +6,7 @@ pub const LOG_LEVEL_INFO: u8 = 1;
 pub const LOG_LEVEL_WARNING: u8 = 2;
 pub const LOG_LEVEL_ERROR: u8 = 3;
 
-var log_level: LOG_LEVEL = LOG_LEVEL_INFO;
+pub var current_log_level: LOG_LEVEL = LOG_LEVEL_INFO;
 var log_dir_path: []const u8 = undefined;
 var log_path_initialized: bool = false;
 
@@ -20,9 +20,9 @@ const flush_on_error = true;
 const flush_on_warning = true;
 
 pub fn load(dir_path: []const u8, lvl: LOG_LEVEL) void {
-    switch (log_level) {
+    switch (current_log_level) {
         0...4 => {
-            log_level = lvl;
+            current_log_level = lvl;
         },
         else => {
             std.log.err("Out of memory", .{});
@@ -105,7 +105,7 @@ fn write(msg: []const u8, need_flush: bool) void {
 }
 
 pub fn logDebug(msg: []const u8) void {
-    if (log_level > LOG_LEVEL_DEBUG) {
+    if (current_log_level > LOG_LEVEL_DEBUG) {
         return;
     }
     const alloc = std.heap.c_allocator;
@@ -116,7 +116,7 @@ pub fn logDebug(msg: []const u8) void {
 }
 
 pub fn logDebugFmt(comptime fmt: []const u8, args: anytype) void {
-    if (log_level > LOG_LEVEL_DEBUG) {
+    if (current_log_level > LOG_LEVEL_DEBUG) {
         return;
     }
     const alloc = std.heap.c_allocator;
@@ -131,7 +131,7 @@ pub fn logDebugFmt(comptime fmt: []const u8, args: anytype) void {
 }
 
 pub fn logInfo(msg: []const u8) void {
-    if (log_level > LOG_LEVEL_INFO) {
+    if (current_log_level > LOG_LEVEL_INFO) {
         return;
     }
     const alloc = std.heap.c_allocator;
@@ -142,7 +142,7 @@ pub fn logInfo(msg: []const u8) void {
 }
 
 pub fn logInfoFmt(comptime fmt: []const u8, args: anytype) void {
-    if (log_level > LOG_LEVEL_INFO) {
+    if (current_log_level > LOG_LEVEL_INFO) {
         return;
     }
     const alloc = std.heap.c_allocator;
@@ -157,7 +157,7 @@ pub fn logInfoFmt(comptime fmt: []const u8, args: anytype) void {
 }
 
 pub fn logWarning(msg: []const u8) void {
-    if (log_level > LOG_LEVEL_WARNING) {
+    if (current_log_level > LOG_LEVEL_WARNING) {
         return;
     }
     const alloc = std.heap.c_allocator;
@@ -168,7 +168,7 @@ pub fn logWarning(msg: []const u8) void {
 }
 
 pub fn logWarningFmt(comptime fmt: []const u8, args: anytype) void {
-    if (log_level > LOG_LEVEL_WARNING) {
+    if (current_log_level > LOG_LEVEL_WARNING) {
         return;
     }
     const alloc = std.heap.c_allocator;
@@ -183,7 +183,7 @@ pub fn logWarningFmt(comptime fmt: []const u8, args: anytype) void {
 }
 
 pub fn logError(msg: []const u8) void {
-    if (log_level > LOG_LEVEL_ERROR) {
+    if (current_log_level > LOG_LEVEL_ERROR) {
         return;
     }
     const alloc = std.heap.c_allocator;
@@ -194,7 +194,7 @@ pub fn logError(msg: []const u8) void {
 }
 
 pub fn logErrorFmt(comptime fmt: []const u8, args: anytype) void {
-    if (log_level > LOG_LEVEL_ERROR) {
+    if (current_log_level > LOG_LEVEL_ERROR) {
         return;
     }
     const alloc = std.heap.c_allocator;
