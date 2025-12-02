@@ -19,4 +19,21 @@
 
 ### variables
 
-- Use snake_case
+- Naming local variables using snake_case
+- Naming global variables using SCREAMING_SNAKE_CASE
+- Naming function using camelCase
+- Naming struct using PascalCase
+
+## zig atomic
+
+### .unordered
+
+### .monotonic
+
+### .acquire
+
+### .release
+
+### .acq_rel
+
+### .seq_cst

@@ -1,22 +1,22 @@
-import { EventType, type EventSchema } from './define';
-import { ptr, toArrayBuffer } from 'bun:ffi';
-import lib from '../extern/events';
+import eventLib from '../extern/events';
+import { toArrayBuffer } from 'bun:ffi';
+import { EventType, type EventSchema, type MouseEvent, type KeyboardEvent, type DeferEvent } from './define';
 
-class UserLoginSchema implements EventSchema {
+class KeyboardEventSchema implements EventSchema {
     parse(buffer: ArrayBuffer) {
         const view = new DataView(buffer);
         return {
-            userId: view.getBigUint64(0, true),
-            timestamp: Number(view.getBigInt64(8, true)),
+            char: view.getUint16(0, true),
+            code: view.getUint32(2, true),
+            // timestamp: Number(view.getBigInt64(8, true)),
         };
     }
 }
 
-class OrderCreatedSchema implements EventSchema {
+class MouseEventSchema implements EventSchema {
     parse(buffer: ArrayBuffer) {
         const view = new DataView(buffer);
         return {
-            orderId: view.getBigUint64(0, true),
             amount: view.getFloat64(8, true),
             userId: view.getBigUint64(16, true),
         };
@@ -24,25 +24,22 @@ class OrderCreatedSchema implements EventSchema {
 }
 
 const schemaRegistry = new Map<EventType, EventSchema>([
-    [EventType.UserLogin, new UserLoginSchema()],
-    [EventType.OrderCreated, new OrderCreatedSchema()],
+    [EventType.KeyboardEvent, new KeyboardEventSchema()],
+    [EventType.MouseEvent, new MouseEventSchema()],
 ]);
 
-export class EventBusConsumer {
-    private running = false;
+export class EventBus {
+    static #running = false;
+    static #handlers: Record<number, ((data: any) => void)[]> = {};
 
-    constructor() {
-        lib.event_bus_setup();
-    }
-
-    // 启动消费循环
-    start(handler: (eventType: EventType, data: any) => void) {
-        this.running = true;
+    static start() {
+        this.#running = true;
 
         const consume = () => {
-            if (!this.running) return;
-
-            const slotPtr = lib.event_bus_poll();
+            if (!this.#running) {
+                return;
+            }
+            const slotPtr = eventLib.event_bus_poll();
 
             if (slotPtr !== null) {
                 try {
@@ -59,59 +56,47 @@ export class EventBusConsumer {
                     // 解析成 JSON
                     const schema = schemaRegistry.get(eventType as EventType);
                     if (schema) {
-                        const jsonData = schema.parse(payloadBuf);
-                        handler(eventType as EventType, jsonData);
+                        const handlers = this.#handlers[eventType];
+                        if (handlers) {
+                            const jsonData = schema.parse(payloadBuf);
+                            for (const handler of handlers) {
+                                handler(jsonData);
+                            }
+                        }
                     } else {
                         console.warn(`Unknown event type: ${eventType}`);
                     }
 
                     // 确认读取
-                    lib.event_bus_commit();
+                    eventLib.event_bus_commit();
                 } catch (err) {
                     console.error('Event parse error:', err);
                 }
             }
-
-            // 使用 setImmediate 保持低延迟
             setImmediate(consume);
         };
-
         consume();
     }
 
-    stop() {
-        this.running = false;
+    static stop() {
+        this.#running = false;
     }
 
-    getStats(): { pending: bigint } {
-        const buf = new BigUint64Array(1);
-        lib.event_bus_stats(ptr(buf));
-        return { pending: buf[0]! };
+    static on(eventType: EventType.MouseEvent, handler: (data: MouseEvent) => void): void;
+    static on(eventType: EventType.KeyboardEvent, handler: (data: KeyboardEvent) => void): void;
+    static on(eventType: EventType, handler: (data: any) => void) {
+        if (!this.#handlers[eventType]) {
+            this.#handlers[eventType] = [];
+        }
+        this.#handlers[eventType].push(handler);
     }
-}
-
-export class EventBusProducer {
-    // 发送原始字节
-    emit(eventType: EventType, data: Uint8Array): boolean {
-        const result = lib.event_bus_emit(eventType, ptr(data), data.length);
-        return result === 0;
-    }
-
-    // 辅助：发送结构化数据（需手动序列化）
-    emitUserLogin(userId: bigint, timestamp: bigint) {
-        const buf = new ArrayBuffer(16);
-        const view = new DataView(buf);
-        view.setBigUint64(0, userId, true);
-        view.setBigInt64(8, timestamp, true);
-        return this.emit(EventType.UserLogin, new Uint8Array(buf));
-    }
-
-    emitOrderCreated(orderId: bigint, amount: number, userId: bigint) {
-        const buf = new ArrayBuffer(24);
-        const view = new DataView(buf);
-        view.setBigUint64(0, orderId, true);
-        view.setFloat64(8, amount, true);
-        view.setBigUint64(16, userId, true);
-        return this.emit(EventType.OrderCreated, new Uint8Array(buf));
+    static off(eventType: EventType, handler: (data: any) => void) {
+        const handlers = this.#handlers[eventType];
+        if (handlers) {
+            const index = handlers.indexOf(handler);
+            if (index !== -1) {
+                handlers.splice(index, 1);
+            }
+        }
     }
 }

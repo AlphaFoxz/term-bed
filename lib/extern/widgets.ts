@@ -19,13 +19,9 @@ const lib = dlopen(fetchDllPath(), {
 export interface RectWidgetStyleOptions {
     x?: number;
     y?: number;
-    width: number;
-    height: number;
+    width?: number;
+    height?: number;
     visible?: boolean;
-}
-
-export interface TextWidgetStyleOptions extends RectWidgetStyleOptions {
-    text: string;
 }
 
 export interface SceneWidgetStyleOptions extends Pick<RectWidgetStyleOptions, 'visible'> {}
@@ -34,14 +30,14 @@ export default {
     createSceneWidget: (options?: SceneWidgetStyleOptions) => {
         return lib.createSceneWidget(options?.visible || true);
     },
-    createTextWidget: (options: TextWidgetStyleOptions): Pointer | null => {
+    createTextWidget: (text: string, options?: RectWidgetStyleOptions): Pointer | null => {
         return lib.createTextWidget(
-            options.x || 0,
-            options.y || 0,
-            options.width,
-            options.height,
-            options.visible || true,
-            toCstring(options.text)
+            options?.x || 0,
+            options?.y || 0,
+            options?.width || 20,
+            options?.height || 1,
+            options?.visible || true,
+            toCstring(text)
         );
     },
     destroyWidget: lib.destroyWidget,

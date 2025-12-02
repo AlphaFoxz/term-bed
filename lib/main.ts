@@ -2,18 +2,8 @@ import { createApp, widgets } from './';
 
 const app = createApp({ logLevel: 'debug', clearLog: true });
 const scene = app.createScene();
-scene.mount(widgets.createText('Count: 0'));
-scene.mount(widgets.createText('Press - / + to change count.'));
-scene.mount(widgets.createText('Press Ctrl+C to exit.'));
+scene.mount(widgets.createText('Count: 0', { x: 0, y: 0 }));
+scene.mount(widgets.createText('Press - / + to change count.', { x: 0, y: 1 }));
+scene.mount(widgets.createText('Press Ctrl+C to exit.', { x: 0, y: 2 }));
 app.switchScene(scene);
-app.start();
-
-let count = 0;
-process.stdin.on('data', async (data) => {
-    const input = data.toString().trim();
-    if (input === '-') count -= 1;
-    if (input === '+') count += 1;
-    if (input === '\u0003') {
-        await app.stop();
-    }
-});
+await app.start();

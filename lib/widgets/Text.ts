@@ -1,11 +1,11 @@
 import type { Disposable, WidgetLike } from '../app/define';
-import widgets, { type TextWidgetStyleOptions } from '../extern/widgets';
+import widgets, { type RectWidgetStyleOptions } from '../extern/widgets';
 
 export default class Text implements Disposable, WidgetLike {
     #id = NaN;
     #ptr: any;
-    constructor(options: TextWidgetStyleOptions) {
-        this.#ptr = widgets.createTextWidget(options);
+    constructor(text: string, options?: RectWidgetStyleOptions) {
+        this.#ptr = widgets.createTextWidget(text, options);
     }
     get id() {
         // FIXME-wong

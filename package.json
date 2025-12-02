@@ -20,6 +20,7 @@
     "typescript": "^5.9.3"
   },
   "dependencies": {
-    "@vue/reactivity": "^3.5.24"
+    "@vue/reactivity": "^3.5.24",
+    "ts-deferred": "^1.0.4"
   }
 }

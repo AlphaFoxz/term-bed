@@ -1,6 +1,6 @@
-import { type TextWidgetStyleOptions } from '../extern/widgets';
+import { type RectWidgetStyleOptions } from '../extern/widgets';
 import Text from './Text';
 
-export function createText(text: string, options?: TextWidgetStyleOptions) {
-    return new Text(options || { width: 20, height: 1, text });
+export function createText(text: string, options?: RectWidgetStyleOptions) {
+    return new Text(text, options);
 }

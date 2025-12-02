@@ -12,4 +12,10 @@ const lib = dlopen(fetchDllPath(), {
     event_bus_stats: { args: [FFIType.ptr], returns: FFIType.void },
 }).symbols;
 
-export default lib;
+export default {
+    event_bus_setup: lib.event_bus_setup,
+    event_bus_emit: lib.event_bus_emit,
+    event_bus_poll: lib.event_bus_poll,
+    event_bus_commit: lib.event_bus_commit,
+    event_bus_stats: lib.event_bus_stats,
+};

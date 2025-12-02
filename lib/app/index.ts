@@ -1,36 +1,50 @@
+import { Deferred } from 'ts-deferred';
 import type { Disposable } from './define';
 import app, { type LogLevel, type TuiAppOptions } from '../extern/app';
+import { EventBus } from '../events';
 import path from 'path';
 import { type SceneWidgetStyleOptions } from '../extern/widgets';
 import Scene from './Scene';
 import fs from 'fs';
+import { EventType } from '../events/define';
+import { appendFile } from 'fs/promises';
 
 class App implements Disposable {
     #ptr: any;
+    #deferred = new Deferred<void>();
+    #logFileDir: string;
+
     constructor(options?: TuiAppOptions) {
         const logLevel: LogLevel = options?.logLevel || 'info';
-        const logFileDir: string = options?.logFilePath || path.resolve(path.dirname(Bun.main), '');
+        this.#logFileDir = options?.logFilePath || path.resolve(path.dirname(Bun.main), '');
         const clearLog = options?.clearLog || false;
-        if (!fs.existsSync(logFileDir)) {
-            fs.mkdirSync(logFileDir);
+        const debugMode = options?.debugMode || false;
+        if (!fs.existsSync(this.#logFileDir)) {
+            fs.mkdirSync(this.#logFileDir);
         }
-        if (!fs.existsSync(logFileDir + '/term-bed.log') || clearLog) {
-            fs.writeFileSync(logFileDir + '/term-bed.log', '');
+        if (!fs.existsSync(this.#logFileDir + '/term-bed.log') || clearLog) {
+            fs.writeFileSync(this.#logFileDir + '/term-bed.log', '');
         }
-        app.setupLogger(logFileDir, logLevel);
+        app.setupLogger(this.#logFileDir, logLevel);
     }
 
     async start() {
         this.#ptr = await app.createApp();
-        process.stdin.setRawMode(true);
-        process.stdin.resume();
         app.forceRenderApp(this.#ptr);
+        EventBus.on(EventType.KeyboardEvent, (data) => {
+            appendFile(this.#logFileDir + '/term-front.log', `按键事件：${JSON.stringify(data)}\n`);
+            // if (data.char === 'q') {
+            this.stop();
+            // }
+        });
+        EventBus.start();
+        await this.#deferred.promise;
     }
 
     async stop() {
         await this.dispose();
-        process.stdin.setRawMode(false);
-        process.stdin.pause();
+        EventBus.stop();
+        this.#deferred.resolve();
     }
 
     createScene(options?: SceneWidgetStyleOptions) {

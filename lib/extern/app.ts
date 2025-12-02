@@ -14,6 +14,7 @@ export interface TuiAppOptions {
     logLevel?: LogLevel;
     logFilePath?: string;
     clearLog?: boolean;
+    debugMode?: boolean;
 }
 
 export default {

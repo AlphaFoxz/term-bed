@@ -62,7 +62,19 @@ pub fn unload() void {
     log_path_initialized = false;
 }
 
+var last_timestamp_ms: i64 = 0;
+const TIMESTAMP_CACHE_MS = 100; // 时间戳缓存100ms
+var cached_timestamp_len: u8 = 0;
+var cached_timestamp: [32]u8 = undefined;
+
 inline fn currentTimstampStr() []const u8 {
+    const now_ms = std.time.milliTimestamp();
+
+    // 如果时间戳缓存仍然有效，直接返回
+    if (now_ms - last_timestamp_ms < TIMESTAMP_CACHE_MS and cached_timestamp_len > 0) {
+        return cached_timestamp[0..cached_timestamp_len];
+    }
+
     var buf: [32]u8 = undefined;
     const now = std.time.timestamp();
     const epoch_seconds = @as(u64, @intCast(now));
@@ -84,11 +96,11 @@ fn write(msg: []const u8, need_flush: bool) void {
     if (!log_path_initialized) {
         return;
     }
-    log_file.seekFromEnd(0) catch ioError();
-    var w = &writer.interface;
-    _ = w.writeAll(msg) catch ioError();
+    // log_file.seekFromEnd(0) catch ioError();
+    var writer_inter = &writer.interface;
+    _ = writer_inter.writeAll(msg) catch ioError();
     if (need_flush) {
-        w.flush() catch ioError();
+        writer_inter.flush() catch ioError();
     }
 }
 
@@ -96,7 +108,7 @@ pub fn logDebug(msg: []const u8) void {
     if (log_level > LOG_LEVEL_DEBUG) {
         return;
     }
-    const alloc = std.heap.page_allocator;
+    const alloc = std.heap.c_allocator;
     const timestamp = currentTimstampStr();
     const str = std.fmt.allocPrint(alloc, "{s} debug: {s}\n", .{ timestamp, msg }) catch outOfMemory();
     defer alloc.free(str);
@@ -107,7 +119,7 @@ pub fn logDebugFmt(comptime fmt: []const u8, args: anytype) void {
     if (log_level > LOG_LEVEL_DEBUG) {
         return;
     }
-    const alloc = std.heap.page_allocator;
+    const alloc = std.heap.c_allocator;
     const timestamp = currentTimstampStr();
     const str = std.fmt.allocPrint(
         alloc,
@@ -122,7 +134,7 @@ pub fn logInfo(msg: []const u8) void {
     if (log_level > LOG_LEVEL_INFO) {
         return;
     }
-    const alloc = std.heap.page_allocator;
+    const alloc = std.heap.c_allocator;
     const timestamp = currentTimstampStr();
     const str = std.fmt.allocPrint(alloc, "{s} info: {s}\n", .{ timestamp, msg }) catch outOfMemory();
     defer alloc.free(str);
@@ -133,7 +145,7 @@ pub fn logInfoFmt(comptime fmt: []const u8, args: anytype) void {
     if (log_level > LOG_LEVEL_INFO) {
         return;
     }
-    const alloc = std.heap.page_allocator;
+    const alloc = std.heap.c_allocator;
     const timestamp = currentTimstampStr();
     const str = std.fmt.allocPrint(
         alloc,
@@ -148,18 +160,18 @@ pub fn logWarning(msg: []const u8) void {
     if (log_level > LOG_LEVEL_WARNING) {
         return;
     }
-    const alloc = std.heap.page_allocator;
+    const alloc = std.heap.c_allocator;
     const timestamp = currentTimstampStr();
     const str = std.fmt.allocPrint(alloc, "{s} warning: {s}\n", .{ timestamp, msg }) catch outOfMemory();
     defer alloc.free(str);
     write(str, flush_on_warning);
 }
 
-pub fn logWaringFmt(comptime fmt: []const u8, args: anytype) void {
+pub fn logWarningFmt(comptime fmt: []const u8, args: anytype) void {
     if (log_level > LOG_LEVEL_WARNING) {
         return;
     }
-    const alloc = std.heap.page_allocator;
+    const alloc = std.heap.c_allocator;
     const timestamp = currentTimstampStr();
     const str = std.fmt.allocPrint(
         alloc,
@@ -174,7 +186,7 @@ pub fn logError(msg: []const u8) void {
     if (log_level > LOG_LEVEL_ERROR) {
         return;
     }
-    const alloc = std.heap.page_allocator;
+    const alloc = std.heap.c_allocator;
     const timestamp = currentTimstampStr();
     const str = std.fmt.allocPrint(alloc, "{s} error: {s}\n", .{ timestamp, msg }) catch outOfMemory();
     defer alloc.free(str);
@@ -185,7 +197,7 @@ pub fn logErrorFmt(comptime fmt: []const u8, args: anytype) void {
     if (log_level > LOG_LEVEL_ERROR) {
         return;
     }
-    const alloc = std.heap.page_allocator;
+    const alloc = std.heap.c_allocator;
     const timestamp = currentTimstampStr();
     const str = std.fmt.allocPrint(
         alloc,
@@ -194,6 +206,14 @@ pub fn logErrorFmt(comptime fmt: []const u8, args: anytype) void {
     ) catch outOfMemory();
     defer alloc.free(str);
     write(str, flush_on_error);
+}
+
+pub fn flush() void {
+    if (!log_path_initialized) {
+        return;
+    }
+    var w = &writer.interface;
+    w.flush() catch ioError();
 }
 
 fn ioError() noreturn {

@@ -1,5 +1,4 @@
 const std = @import("std");
-const builtin = @import("builtin");
 
 // ============ 配置 ============
 const SLOT_SIZE = 256; // 每个事件槽大小
@@ -14,9 +13,14 @@ const EventHeader = extern struct {
 };
 
 // ============ 事件槽 ============
-const EventSlot = extern struct {
+pub const EventSlot = extern struct {
     header: EventHeader,
     data: [SLOT_SIZE - @sizeOf(EventHeader)]u8,
+};
+
+pub const EventType = enum(u16) {
+    KeyEvent = 1,
+    MouseEvent = 2,
 };
 
 // ============ SPSC 无锁环形队列 ============
@@ -42,12 +46,12 @@ const EventBus = struct {
         }
 
         const head = self.head.load(.monotonic);
-        const tail = self.tail.load(.acquire);
+        var tail = self.tail.load(.acquire);
 
         // 阻塞等待空位（满时自旋）
         while (head - tail >= QUEUE_SIZE) {
             std.atomic.spinLoopHint();
-            _ = self.tail.load(.acquire); // 重新加载tail
+            tail = self.tail.load(.acquire); // 重新加载tail
         }
 
         // 写入槽位
@@ -89,7 +93,7 @@ var initialized: bool = false;
 
 // ============ FFI 导出函数 ============
 
-pub export fn event_bus_setup() void {
+pub fn event_bus_setup() void {
     if (!initialized) {
         global_bus = EventBus.init();
         initialized = true;
@@ -97,7 +101,7 @@ pub export fn event_bus_setup() void {
 }
 
 // 发布事件：event_type, data指针, 长度
-pub export fn event_bus_emit(event_type: u16, data_ptr: [*]const u8, len: usize) c_int {
+pub fn event_bus_emit(event_type: u16, data_ptr: [*]const u8, len: usize) c_int {
     if (!initialized) return -1;
 
     const data = data_ptr[0..len];
@@ -105,20 +109,26 @@ pub export fn event_bus_emit(event_type: u16, data_ptr: [*]const u8, len: usize)
     return 0;
 }
 
+pub fn event_bus_emit_bytes(event_type: u16, data: []const u8) c_int {
+    if (!initialized) return -1;
+    global_bus.emit(event_type, data) catch return -2;
+    return 0;
+}
+
 // 轮询事件（返回槽位指针，NULL表示无事件）
-pub export fn event_bus_poll() ?*const EventSlot {
+pub fn event_bus_poll() ?*const EventSlot {
     if (!initialized) return null;
     return global_bus.poll();
 }
 
 // 确认读取
-pub export fn event_bus_commit() void {
+pub fn event_bus_commit() void {
     if (!initialized) return;
     global_bus.commit_read();
 }
 
 // 获取队列统计
-pub export fn event_bus_stats(out_pending: *u64) void {
+pub fn event_bus_stats(out_pending: *u64) void {
     if (!initialized) {
         out_pending.* = 0;
         return;

@@ -8,6 +8,7 @@ const tui_app = @import("./core/tui_app.zig");
 const render = @import("./render.zig");
 const glo_alloc = @import("./core/glo_alloc.zig");
 const logger = @import("./core/logger.zig");
+const event_bus = @import("./core/event_bus.zig");
 
 // ======================== app ========================
 pub export fn setupLogger(cdir_path: [*:0]const u8, log_level: logger.LOG_LEVEL) void {
@@ -31,6 +32,30 @@ pub export fn renderApp() void {}
 
 pub export fn forceRenderApp(app_ptr: *tui_app.TuiApp) void {
     render.forceRenderApp(app_ptr);
+}
+
+// ======================== event ========================
+pub export fn event_bus_setup() void {
+    event_bus.event_bus_setup();
+}
+
+// 发布事件：event_type, data指针, 长度
+pub export fn event_bus_emit(event_type: u16, data_ptr: [*]const u8, len: usize) c_int {
+    return event_bus.event_bus_emit(event_type, data_ptr, len);
+}
+
+pub export fn event_bus_poll() ?*const event_bus.EventSlot {
+    return event_bus.event_bus_poll();
+}
+
+// 确认读取
+pub export fn event_bus_commit() void {
+    event_bus.event_bus_commit();
+}
+
+// 获取队列统计
+pub export fn event_bus_stats(out_pending: *u64) void {
+    event_bus.event_bus_stats(out_pending);
 }
 
 // ======================== widgets =======================

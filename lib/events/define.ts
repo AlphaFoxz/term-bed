@@ -1,9 +1,20 @@
 export enum EventType {
-    UserLogin = 1,
-    OrderCreated = 2,
-    PaymentReceived = 3,
+    KeyboardEvent = 1,
+    MouseEvent = 2,
 }
+
+export type KeyboardEvent = {
+    char: string;
+    code: number;
+};
+
+export type MouseEvent = {
+    amount: number;
+    userId: number;
+};
 
 export interface EventSchema {
     parse(buffer: ArrayBuffer): any;
 }
+
+export type DeferEvent<T> = T extends 1 ? KeyboardEvent : T extends 2 ? MouseEvent : never;
