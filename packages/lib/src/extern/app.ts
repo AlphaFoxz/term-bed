@@ -1,5 +1,6 @@
 import { dlopen, FFIType, type Pointer } from 'bun:ffi';
 import { fetchDllPath, toCstring } from './util';
+import { assertPtr } from './common';
 
 const lib = dlopen(fetchDllPath(), {
     setupLogger: {
@@ -8,18 +9,31 @@ const lib = dlopen(fetchDllPath(), {
     },
     createApp: { returns: FFIType.pointer, args: [] },
     destroyApp: { returns: FFIType.void, args: [FFIType.pointer] },
+    createScene: {
+        returns: FFIType.pointer,
+        args: [FFIType.bool, FFIType.u32],
+    },
+    destroyScene: {
+        returns: FFIType.void,
+        args: [FFIType.pointer],
+    },
     forceRenderApp: { returns: FFIType.pointer, args: [FFIType.pointer] },
 }).symbols;
 
 export type LogLevel = 'debug' | 'info' | 'warning' | 'error';
 
 export interface TuiAppOptions {
-    logLevel?: LogLevel;
-    logFilePath?: string;
-    frontendLogName?: string;
-    backendLogName?: string;
-    clearLog?: boolean;
-    debugMode?: boolean;
+    logLevel: LogLevel;
+    logFilePath: string;
+    frontendLogName: string;
+    backendLogName: string;
+    clearLog: boolean;
+    debugMode: boolean;
+}
+
+export interface SceneOptions {
+    visible: boolean;
+    bgHexRgb: number;
 }
 
 export default {
@@ -41,12 +55,23 @@ export default {
         }
         lib.setupLogger(toCstring(logFileDir), toCstring(backendLogName), logLvl);
     },
-    createApp: async () => {
-        return lib.createApp();
+    createApp(): Pointer {
+        return assertPtr(lib.createApp());
     },
-    destroyApp: async (appPtr: Pointer | null) => {
-        if (!appPtr) return;
+    destroyApp(appPtr: Pointer | null) {
+        if (!appPtr) {
+            return;
+        }
         lib.destroyApp(appPtr);
+    },
+    createScene(options: SceneOptions): Pointer {
+        return assertPtr(lib.createScene(options.visible, options.bgHexRgb));
+    },
+    destroyScene(scenePtr: Pointer | null) {
+        if (!scenePtr) {
+            return;
+        }
+        lib.destroyScene(scenePtr);
     },
     forceRenderApp: lib.forceRenderApp,
 };

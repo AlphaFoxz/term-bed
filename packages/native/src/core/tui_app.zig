@@ -7,6 +7,34 @@ const glo_alloc = @import("./glo_alloc.zig");
 const input = @import("../input.zig");
 const logger = @import("./logger.zig");
 const event_bus = @import("./event_bus.zig");
+const Rgba = @import("../ansi_util/style.zig").Rgba;
+const err = @import("./error.zig");
+const wdt_common = @import("./widgets/common.zig");
+
+pub const Scene = struct {
+    alloc: std.mem.Allocator,
+    id: u64,
+    visible: bool,
+    background_color: Rgba,
+
+    pub fn init(visible: bool, background_color: Rgba) *Scene {
+        const alloc = glo_alloc.allocator();
+        const ptr = alloc.create(Scene) catch {
+            err.outOfMemory();
+        };
+        ptr.* = Scene{
+            .alloc = alloc,
+            .id = wdt_common.genId(),
+            .visible = visible,
+            .background_color = background_color,
+        };
+        return ptr;
+    }
+
+    pub fn deinit(self: *Scene) void {
+        defer self.alloc.destroy(self);
+    }
+};
 
 pub const TuiApp = struct {
     alloc: std.mem.Allocator,

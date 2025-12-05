@@ -3,7 +3,8 @@
     "version": "0.1.0",
     "main": "src/index.ts",
     "scripts": {
-        "build": "bun build --target=bun --production ./src/index.ts --outfile ./dist/index.bun.mjs"
+        "test": "bun test",
+        "build": "bun run ./scripts/sync.ts && bun build --target=bun --production ./src/index.ts --outfile ./dist/index.bun.mjs"
     },
     "dependencies": {
         "@vue/reactivity": "^3.5.24"

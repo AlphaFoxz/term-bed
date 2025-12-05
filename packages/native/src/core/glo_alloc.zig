@@ -5,7 +5,7 @@ var g_debug_alloc_inst = std.heap.DebugAllocator(.{}){};
 var debug_alloc: std.mem.Allocator = undefined;
 var debug_mode = false;
 
-pub fn allocator() std.mem.Allocator {
+pub inline fn allocator() std.mem.Allocator {
     if (debug_mode) {
         return debug_alloc;
     }

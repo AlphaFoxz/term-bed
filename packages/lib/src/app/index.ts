@@ -1,18 +1,19 @@
-import type { Disposable } from './define';
-import app, { type LogLevel, type TuiAppOptions } from '../extern/app';
+import type { Disposable } from '../extern/define';
+import app, { type LogLevel, type TuiAppOptions, type SceneOptions } from '../extern/app';
 import { EventBus } from '../events';
 import path from 'path';
-import { type SceneWidgetStyleOptions } from '../extern/widgets';
 import Scene from './Scene';
-import { Logger } from './logger';
+import { Logger } from '../common/logger';
 import { EventType } from '../events/define';
+import { type Pointer } from 'bun:ffi';
 
 class App implements Disposable {
-    #ptr: any;
+    #ptr: Pointer | null = null;
     #debugMode = false;
     #scenes: Scene[] = [];
+    #running = false;
 
-    constructor(options?: TuiAppOptions) {
+    constructor(options?: Partial<TuiAppOptions>) {
         const logLevel: LogLevel = options?.logLevel || 'info';
         const logFileDir = options?.logFilePath || path.dirname(Bun.main);
         const backendLogName = options?.backendLogName || 'term_bed-backend.log';
@@ -29,8 +30,8 @@ class App implements Disposable {
         app.setupLogger(logFileDir, backendLogName, logLevel);
     }
 
-    async start() {
-        this.#ptr = await app.createApp();
+    start() {
+        this.#ptr = app.createApp();
         app.forceRenderApp(this.#ptr);
         if (this.#debugMode) {
             EventBus.on(EventType.KeyboardEvent, async (data) => {
@@ -45,49 +46,72 @@ class App implements Disposable {
         }
         EventBus.on(EventType.KeyboardEvent, async (data) => {
             if (data.key === 'q' || data.key === 'Q') {
-                await this.stop();
+                setTimeout(() => {
+                    this.stop();
+                });
             }
         });
         EventBus.start();
+        const consume = () => {
+            if (!this.#running) {
+                return;
+            }
+            // app.render(this.#ptr);
+            setImmediate(consume);
+        };
+        consume();
     }
 
-    async stop() {
-        await this.dispose();
+    stop() {
+        this.dispose();
         EventBus.stop();
         Logger.deinit();
     }
 
-    createScene(options?: SceneWidgetStyleOptions) {
+    createScene(options?: Partial<SceneOptions>) {
         const scene = new Scene(options);
         this.#scenes.push(scene);
         return scene;
     }
 
-    switchScene(scene: Scene): void;
-    switchScene(sceneId: number): void;
-    switchScene(sceneId: Scene) {
-        const scenes = this.#scenes;
-        if (sceneId instanceof Scene) {
-            sceneId = sceneId.id;
+    switchScene(scene: Scene) {
+        for (const s of this.#scenes) {
+            s.setVisible(s === scene);
         }
-        // TODO-wong switch scene
-        // app.switchScene(sceneId);
     }
 
-    async dispose() {
+    dispose() {
         if (!this.#ptr) return;
-        await app.destroyApp(this.#ptr);
+        app.destroyApp(this.#ptr);
         this.#ptr = null;
     }
 
-    async [Symbol.dispose]() {
-        await this.dispose();
+    [Symbol.dispose]() {
+        this.dispose();
     }
-    async [Symbol.asyncDispose]() {
-        await this.dispose();
+    [Symbol.asyncDispose]() {
+        this.dispose();
     }
 }
 
-export function createApp(options?: TuiAppOptions) {
+let appInstance: App | undefined = undefined;
+async function onUnexceptExit(err: unknown) {
+    let errStr = 'Unexcept exit';
+    if (!err) {
+    } else if (typeof err === 'object') {
+        errStr += errStr = JSON.stringify(err);
+    } else {
+        errStr += err;
+    }
+    Logger.logError(errStr);
+    await new Promise((resolve) => setTimeout(resolve));
+    if (appInstance) {
+        appInstance.stop();
+    }
+}
+process.on('unhandledRejection', onUnexceptExit);
+process.on('uncaughtException', onUnexceptExit);
+
+export function createApp(options?: Partial<TuiAppOptions>) {
     return new App(options);
 }

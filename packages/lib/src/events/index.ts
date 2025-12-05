@@ -1,8 +1,7 @@
 import path from 'path';
-import { appendFile } from 'fs/promises';
 import eventLib from '../extern/events';
 import { toArrayBuffer } from 'bun:ffi';
-import { EventType, type EventSchema, MouseEvent, KeyboardEvent, WheelEvent } from './define';
+import { EventType, MouseEvent, KeyboardEvent, WheelEvent } from './define';
 
 const schemaRegistry = new Map<EventType, new (json: Record<string, any>) => any>([
     [EventType.KeyboardEvent, KeyboardEvent],
@@ -14,7 +13,6 @@ const decoder = new TextDecoder('utf-8');
 export class EventBus {
     static #running = false;
     static #handlers: Record<number, ((data: any) => void)[]> = {};
-    static #logFileDir: string = path.resolve(path.dirname(Bun.main), '');
 
     static start() {
         this.#running = true;

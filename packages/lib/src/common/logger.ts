@@ -1,7 +1,15 @@
 import fs from 'fs';
 import path from 'path';
 import { appendFile } from 'fs/promises';
-import type { LoggerOptions } from './define';
+import { type LogLevel } from '../extern/app';
+
+export type LoggerOptions = {
+    logFileDir: string;
+    logLevel: LogLevel;
+    clearLog: boolean;
+    frontendLogName: string;
+    backendLogName: string;
+};
 
 const LOG_LEVEL_DEBUG = 0;
 const LOG_LEVEL_INFO = 1;
@@ -76,10 +84,14 @@ export class Logger {
                 return;
             }
             try {
-                const task = this.#taskQueue.shift();
-                if (task) {
-                    await task();
+                const tasks: (Promise<void> | void)[] = [];
+                while (this.#taskQueue.length > 0) {
+                    const task = this.#taskQueue.shift();
+                    if (task) {
+                        tasks.push(task());
+                    }
                 }
+                await Promise.all(tasks);
             } catch (e) {
                 throw e;
             } finally {

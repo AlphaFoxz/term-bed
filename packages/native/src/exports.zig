@@ -36,6 +36,17 @@ pub export fn destroyApp(app: *tui_app.TuiApp) void {
     tui_app.destroyApp(app);
 }
 
+pub export fn createScene(visible: bool, bg_hex_rgb: u32) *tui_app.Scene {
+    return tui_app.Scene.init(
+        visible,
+        ansi.style.Rgba.fromU32((bg_hex_rgb << 8) + 100),
+    );
+}
+
+pub export fn destroyScene(ptr: *tui_app.Scene) void {
+    ptr.deinit();
+}
+
 pub export fn renderApp() void {}
 
 pub export fn forceRenderApp(app_ptr: *tui_app.TuiApp) void {
@@ -67,21 +78,24 @@ pub export fn event_bus_stats(out_pending: *u64) void {
 }
 
 // ======================== widgets =======================
-pub export fn createSceneWidget(visible: bool, bg_hex_rgb: u32) *widgets.Widget {
-    var w: widgets.Widget = .{ .scene = widgets.scene.Scene.init(visible, ansi.style.Rgba.fromU32((bg_hex_rgb << 8) + 100)) };
-    return &w;
+pub export fn createRectWidgetInfo(
+    x: u16,
+    y: u16,
+    width: u16,
+    height: u16,
+    z_index: i32,
+    visible: u8,
+) *widgets.common.RectWidgetInfo {
+    return widgets.common.RectWidgetInfo.init(x, y, width, height, z_index, visible);
 }
 
-pub export fn createTextWidget(x: u16, y: u16, width: u16, height: u16, visible: bool, cstr: [*:0]const u8) *widgets.Widget {
+pub export fn createTextWidget(rect_info: *widgets.common.RectWidgetInfo, cstr: [*:0]const u8) *widgets.Widget {
     const text = String.initFromCSclice(cstr);
-    var w: widgets.Widget = .{ .text = widgets.text.Text.init(x, y, width, height, visible, text) };
-    return &w;
+    return widgets.initTextWidget(rect_info, text);
 }
 
-pub export fn destroyWidget(widget_ptr: ?*widgets.Widget) void {
-    if (widget_ptr == null) {} else {
-        widget_ptr.?.deinit();
-    }
+pub export fn destroyWidget(widget_ptr: *widgets.Widget) void {
+    widgets.deinitWidget(widget_ptr);
 }
 
 // ======================== ansi ========================

@@ -1,34 +1,39 @@
-import type { WidgetLike } from './define';
-import widgets, { type SceneWidgetStyleOptions } from '../extern/widgets';
+import type { WidgetLike, Disposable } from '../extern/define';
+import app, { type SceneOptions } from '../extern/app';
+import { type Pointer } from 'bun:ffi';
 
-export default class Scene implements WidgetLike {
-    #id: number = NaN;
-    #ptr: any;
+export default class Scene implements Disposable {
+    #ptr: Pointer | null;
     #widgets: WidgetLike[] = [];
-    constructor(options?: SceneWidgetStyleOptions) {
-        this.#ptr = widgets.createSceneWidget(options);
+    #visible: boolean = false;
+    constructor(options?: Partial<SceneOptions>) {
+        this.#ptr = app.createScene({
+            visible: options?.visible || false,
+            bgHexRgb: options?.bgHexRgb || 0x000000,
+        });
     }
-    get id() {
-        if (!this.#id) {
-            this.#id = 1;
-        }
-        return this.#id;
+    setVisible(visible: boolean) {
+        this.#visible = visible;
+    }
+    get visible() {
+        return this.#visible;
     }
     mount(widget: WidgetLike) {
         this.#widgets.push(widget);
-        // FIXME-wong
+        widget.mounted();
         return this;
     }
     unmount(widget: WidgetLike) {
         const index = this.#widgets.indexOf(widget);
         if (index >= 0) {
+            this.#widgets[index]?.unmounted();
             this.#widgets.splice(this.#widgets.indexOf(widget), 1);
         }
-        // FIXME-wong
     }
     dispose() {
-        if (!this.#ptr) return;
-        widgets.destroyWidget(this.#ptr);
+        this.#widgets.length = 0;
+        app.destroyScene(this.#ptr);
+        this.#ptr = null;
     }
     [Symbol.dispose]() {
         this.dispose();
