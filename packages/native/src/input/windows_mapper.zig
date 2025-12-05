@@ -7,8 +7,6 @@ comptime {
     }
 }
 
-// See https://developer.mozilla.org/en-US/docs/Web/API/UI_Events/Keyboard_event_key_values
-
 // Alt
 pub const VK_MENU = 0x12;
 pub const VK_LMENU = 0xA4;
@@ -156,6 +154,8 @@ const VirtualKeyPair = struct {
     virtual_key: u16,
     name: []const u8,
 };
+
+// See https://developer.mozilla.org/en-US/docs/Web/API/UI_Events/Keyboard_event_key_values
 const raw_mappings = [_]VirtualKeyPair{
     VirtualKeyPair{ .virtual_key = VK_MENU, .name = "Alt" },
     VirtualKeyPair{ .virtual_key = VK_LMENU, .name = "Alt" },

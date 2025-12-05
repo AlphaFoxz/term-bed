@@ -1,4 +1,4 @@
-import { dlopen, FFIType } from 'bun:ffi';
+import { dlopen, FFIType, toArrayBuffer } from 'bun:ffi';
 import { fetchDllPath } from './util';
 
 const lib = dlopen(fetchDllPath(), {

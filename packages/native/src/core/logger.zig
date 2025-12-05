@@ -19,7 +19,7 @@ var writer: std.fs.File.Writer = undefined;
 const flush_on_error = true;
 const flush_on_warning = true;
 
-pub fn load(dir_path: []const u8, lvl: LOG_LEVEL) void {
+pub fn load(dir_path: []const u8, log_name: []const u8, lvl: LOG_LEVEL) void {
     switch (current_log_level) {
         0...4 => {
             current_log_level = lvl;
@@ -37,7 +37,7 @@ pub fn load(dir_path: []const u8, lvl: LOG_LEVEL) void {
     log_dir = std.fs.openDirAbsolute(log_dir_path, .{}) catch {
         ioError();
     };
-    log_file = log_dir.createFile("term-bed.log", .{
+    log_file = log_dir.createFile(log_name, .{
         .truncate = false,
         // .lock = .exclusive,
     }) catch {
@@ -64,7 +64,7 @@ pub fn unload() void {
 
 var last_timestamp_ms: i64 = 0;
 const TIMESTAMP_CACHE_MS = 100; // 时间戳缓存100ms
-var cached_timestamp_len: u8 = 0;
+var cached_timestamp_len: usize = 0;
 var cached_timestamp: [32]u8 = undefined;
 
 inline fn currentTimstampStr() []const u8 {
@@ -88,7 +88,16 @@ inline fn currentTimstampStr() []const u8 {
     const h = ds.getHoursIntoDay();
     const m = ds.getMinutesIntoHour();
     const s = ds.getSecondsIntoMinute();
-    const out = std.fmt.bufPrint(&buf, "[{d:0>4}-{d:0>2}-{d:0>2} {d:0>2}:{d:0>2}:{d:0>2}]", .{ year, mon, day, h, m, s }) catch unreachable;
+    const out = std.fmt.bufPrint(
+        &buf,
+        "[{d:0>4}-{d:0>2}-{d:0>2} {d:0>2}:{d:0>2}:{d:0>2}]",
+        .{ year, mon, day, h, m, s },
+    ) catch
+        return "TIMESTAMP_ERR";
+
+    last_timestamp_ms = now_ms;
+    cached_timestamp_len = out.len;
+    std.mem.copyForwards(u8, &cached_timestamp, out);
     return out;
 }
 
@@ -96,7 +105,6 @@ fn write(msg: []const u8, need_flush: bool) void {
     if (!log_path_initialized) {
         return;
     }
-    // log_file.seekFromEnd(0) catch ioError();
     var writer_inter = &writer.interface;
     _ = writer_inter.writeAll(msg) catch ioError();
     if (need_flush) {

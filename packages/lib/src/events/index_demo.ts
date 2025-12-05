@@ -42,19 +42,19 @@ export class EventBusConsumer {
         const consume = () => {
             if (!this.running) return;
 
-            const slotPtr = lib.event_bus_poll();
+            const eventSlotPtr = lib.event_bus_poll();
 
-            if (slotPtr !== null) {
+            if (eventSlotPtr !== null) {
                 try {
                     // 读取事件头（前12字节）
-                    const headerBuf = toArrayBuffer(slotPtr, 0, 12);
+                    const headerBuf = toArrayBuffer(eventSlotPtr, 0, 12);
                     const headerView = new DataView(headerBuf);
                     const eventType = headerView.getUint16(0, true);
                     const payloadLen = headerView.getUint16(2, true);
                     const sequence = headerView.getBigUint64(4, true);
 
                     // 读取负载数据
-                    const payloadBuf = toArrayBuffer(slotPtr, 12, payloadLen);
+                    const payloadBuf = toArrayBuffer(eventSlotPtr, 12, payloadLen);
 
                     // 解析成 JSON
                     const schema = schemaRegistry.get(eventType as EventType);

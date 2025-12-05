@@ -4,6 +4,7 @@ const logger = @import("./core/logger.zig");
 
 const mode = @import("./input/mode.zig");
 const windows_listener = switch (builtin.os.tag) {
+    // See https://github.com/marlersoft/zigwin32/blob/5587b16fa040573846a6bf531301f6206d31a6bf/win32/system/console.zig
     .windows => @import("./input/windows_listener.zig"),
     .linux, .macos, .freebsd, .netbsd, .openbsd => @import("./input/posix_listener.zig"),
     else => unsupportedOS(),

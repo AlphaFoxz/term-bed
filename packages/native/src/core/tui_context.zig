@@ -4,8 +4,7 @@ const std_io = @import("./std_io.zig");
 const logger = @import("./logger.zig");
 const err = @import("./error.zig");
 const glo_alloc = @import("./glo_alloc.zig");
-
-const TuiScale = u16;
+const TuiScale = @import("./typedef.zig").TuiScale;
 
 pub const TuiContext = struct {
     alloc: std.mem.Allocator,

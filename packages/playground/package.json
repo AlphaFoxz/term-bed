@@ -1,5 +1,6 @@
 {
     "name": "playground",
+    "version": "0.1.0",
     "scripts": {
         "dev": "bun run ./main.ts",
         "build": "bun run sync && bun build --target=bun --production ./main.ts --outfile ./dist/myapp.bun.mjs",

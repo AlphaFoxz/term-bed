@@ -1,12 +1,15 @@
 const std = @import("std");
 const fixedBufferStream = std.io.fixedBufferStream;
 const testing = std.testing;
-const CellStyle = @import("./style.zig").CellStyle;
-const FontStyle = @import("./style.zig").FontStyle;
-const Color = @import("./style.zig").Color;
+
+const style = @import("style.zig");
+const Style = style.Style;
+const FontStyle = style.FontStyle;
+const Color = style.Color;
 
 const esc = "\x1B";
 const csi = esc ++ "[";
+
 const reset = csi ++ "0m";
 
 const font_style_codes = std.StaticStringMap([]const u8).initComptime(.{
@@ -33,13 +36,13 @@ const font_style_codes = std.StaticStringMap([]const u8).initComptime(.{
 /// Tries to use as little bytes as necessary. Use this function if
 /// you want to optimize for smallest amount of transmitted bytes
 /// instead of computation speed.
-pub fn updateStyle(writer: anytype, n_style: CellStyle, o_style: ?CellStyle) !void {
-    if (o_style) |o| if (n_style.eql(o)) return;
-    if (n_style.isDefault()) return try resetStyle(writer);
+pub fn updateStyle(writer: anytype, new: Style, old: ?Style) !void {
+    if (old) |sty| if (new.eql(sty)) return;
+    if (new.isDefault()) return try resetStyle(writer);
 
     // A reset is required if the new font style has attributes not
     // present in the old style or if the old style is not known
-    const reset_required = if (o_style) |sty| !sty.font_style.subsetOf(n_style.font_style) else true;
+    const reset_required = if (old) |sty| !sty.font_style.subsetOf(new.font_style) else true;
     if (reset_required) try resetStyle(writer);
 
     // Start the escape sequence
@@ -47,7 +50,7 @@ pub fn updateStyle(writer: anytype, n_style: CellStyle, o_style: ?CellStyle) !vo
     var written_something = false;
 
     // Font styles
-    const write_styles = if (reset_required) n_style.font_style else n_style.font_style.without(o_style.?.font_style);
+    const write_styles = if (reset_required) new.font_style else new.font_style.without(old.?.font_style);
     inline for (std.meta.fields(FontStyle)) |field| {
         if (@field(write_styles, field.name)) {
             const code = font_style_codes.get(field.name).?;
@@ -61,18 +64,14 @@ pub fn updateStyle(writer: anytype, n_style: CellStyle, o_style: ?CellStyle) !vo
     }
 
     // Foreground color
-    if (reset_required and
-        n_style.foreground != .Default or
-        o_style != null and
-            !o_style.?.foreground.eql(n_style.foreground))
-    {
+    if (reset_required and new.foreground != .Default or old != null and !old.?.foreground.eql(new.foreground)) {
         if (written_something) {
             try writer.writeAll(";");
         } else {
             written_something = true;
         }
 
-        switch (n_style.foreground) {
+        switch (new.foreground) {
             .Default => try writer.writeAll("39"),
             .Black => try writer.writeAll("30"),
             .Red => try writer.writeAll("31"),
@@ -82,21 +81,21 @@ pub fn updateStyle(writer: anytype, n_style: CellStyle, o_style: ?CellStyle) !vo
             .Magenta => try writer.writeAll("35"),
             .Cyan => try writer.writeAll("36"),
             .White => try writer.writeAll("37"),
-            .Fixed => |fixed| try writer.print("38;5;{}", .{fixed.value}),
+            .Fixed => |fixed| try writer.print("38;5;{}", .{fixed}),
             .Grey => |grey| try writer.print("38;2;{};{};{}", .{ grey, grey, grey }),
-            .Rgba => |rgb| try writer.print("38;2;{};{};{}", .{ rgb.r, rgb.g, rgb.b }),
+            .RGB => |rgb| try writer.print("38;2;{};{};{}", .{ rgb.r, rgb.g, rgb.b }),
         }
     }
 
     // Background color
-    if (reset_required and n_style.background != .Default or o_style != null and !o_style.?.background.eql(n_style.background)) {
+    if (reset_required and new.background != .Default or old != null and !old.?.background.eql(new.background)) {
         if (written_something) {
             try writer.writeAll(";");
         } else {
             written_something = true;
         }
 
-        switch (n_style.background) {
+        switch (new.background) {
             .Default => try writer.writeAll("49"),
             .Black => try writer.writeAll("40"),
             .Red => try writer.writeAll("41"),
@@ -106,9 +105,9 @@ pub fn updateStyle(writer: anytype, n_style: CellStyle, o_style: ?CellStyle) !vo
             .Magenta => try writer.writeAll("45"),
             .Cyan => try writer.writeAll("46"),
             .White => try writer.writeAll("47"),
-            .Fixed => |fixed| try writer.print("48;5;{}", .{fixed.value}),
+            .Fixed => |fixed| try writer.print("48;5;{}", .{fixed}),
             .Grey => |grey| try writer.print("48;2;{};{};{}", .{ grey, grey, grey }),
-            .Rgba => |rgb| try writer.print("48;2;{};{};{}", .{ rgb.r, rgb.g, rgb.b }),
+            .RGB => |rgb| try writer.print("48;2;{};{};{}", .{ rgb.r, rgb.g, rgb.b }),
         }
     }
 
@@ -116,7 +115,7 @@ pub fn updateStyle(writer: anytype, n_style: CellStyle, o_style: ?CellStyle) !vo
     try writer.writeAll("m");
 }
 
-pub fn updateStyleAndFlush(writer: anytype, new: CellStyle, old: ?CellStyle) !void {
+pub fn updateStyleAndFlush(writer: anytype, new: Style, old: ?Style) !void {
     try updateStyle(writer, new, old);
     try writer.flush();
 }
@@ -125,7 +124,7 @@ test "same style default, no update" {
     var buf: [1024]u8 = undefined;
     var fixed_buf_stream = fixedBufferStream(&buf);
 
-    try updateStyle(fixed_buf_stream.writer(), CellStyle{}, CellStyle{});
+    try updateStyle(fixed_buf_stream.writer(), Style{}, Style{});
 
     const expected = "";
     const actual = fixed_buf_stream.getWritten();
@@ -137,7 +136,7 @@ test "same style non-default, no update" {
     var buf: [1024]u8 = undefined;
     var fixed_buf_stream = fixedBufferStream(&buf);
 
-    const sty = CellStyle{
+    const sty = Style{
         .foreground = Color.Green,
     };
     try updateStyle(fixed_buf_stream.writer(), sty, sty);
@@ -152,7 +151,7 @@ test "reset to default, old null" {
     var buf: [1024]u8 = undefined;
     var fixed_buf_stream = fixedBufferStream(&buf);
 
-    try updateStyle(fixed_buf_stream.writer(), CellStyle{}, null);
+    try updateStyle(fixed_buf_stream.writer(), Style{}, null);
 
     const expected = "\x1B[0m";
     const actual = fixed_buf_stream.getWritten();
@@ -164,7 +163,7 @@ test "reset to default, old non-null" {
     var buf: [1024]u8 = undefined;
     var fixed_buf_stream = fixedBufferStream(&buf);
 
-    try updateStyle(fixed_buf_stream.writer(), CellStyle{}, CellStyle{
+    try updateStyle(fixed_buf_stream.writer(), Style{}, Style{
         .font_style = .{ .bold = true },
     });
 
@@ -178,9 +177,9 @@ test "bold style" {
     var buf: [1024]u8 = undefined;
     var fixed_buf_stream = fixedBufferStream(&buf);
 
-    try updateStyle(fixed_buf_stream.writer(), CellStyle{
+    try updateStyle(fixed_buf_stream.writer(), Style{
         .font_style = .{ .bold = true },
-    }, CellStyle{});
+    }, Style{});
 
     const expected = "\x1B[1m";
     const actual = fixed_buf_stream.getWritten();
@@ -192,9 +191,9 @@ test "add bold style" {
     var buf: [1024]u8 = undefined;
     var fixed_buf_stream = fixedBufferStream(&buf);
 
-    try updateStyle(fixed_buf_stream.writer(), CellStyle{
+    try updateStyle(fixed_buf_stream.writer(), Style{
         .font_style = .{ .bold = true, .italic = true },
-    }, CellStyle{
+    }, Style{
         .font_style = .{ .italic = true },
     });
 
@@ -208,9 +207,9 @@ test "reset required font style" {
     var buf: [1024]u8 = undefined;
     var fixed_buf_stream = fixedBufferStream(&buf);
 
-    try updateStyle(fixed_buf_stream.writer(), CellStyle{
+    try updateStyle(fixed_buf_stream.writer(), Style{
         .font_style = .{ .bold = true },
-    }, CellStyle{
+    }, Style{
         .font_style = .{ .bold = true, .underline = true },
     });
 
@@ -224,7 +223,7 @@ test "reset required color style" {
     var buf: [1024]u8 = undefined;
     var fixed_buf_stream = fixedBufferStream(&buf);
 
-    try updateStyle(fixed_buf_stream.writer(), CellStyle{
+    try updateStyle(fixed_buf_stream.writer(), Style{
         .foreground = Color.Red,
     }, null);
 
@@ -238,9 +237,9 @@ test "no reset required color style" {
     var buf: [1024]u8 = undefined;
     var fixed_buf_stream = fixedBufferStream(&buf);
 
-    try updateStyle(fixed_buf_stream.writer(), CellStyle{
+    try updateStyle(fixed_buf_stream.writer(), Style{
         .foreground = Color.Red,
-    }, CellStyle{});
+    }, Style{});
 
     const expected = "\x1B[31m";
     const actual = fixed_buf_stream.getWritten();
@@ -252,10 +251,10 @@ test "no reset required add color style" {
     var buf: [1024]u8 = undefined;
     var fixed_buf_stream = fixedBufferStream(&buf);
 
-    try updateStyle(fixed_buf_stream.writer(), CellStyle{
+    try updateStyle(fixed_buf_stream.writer(), Style{
         .foreground = Color.Red,
         .background = Color.Magenta,
-    }, CellStyle{
+    }, Style{
         .background = Color.Magenta,
     });
 
@@ -289,10 +288,10 @@ test "reset style" {
 test "Grey foreground color" {
     var buf: [1024]u8 = undefined;
     var fixed_buf_stream = fixedBufferStream(&buf);
-    var new_style = CellStyle{};
+    var new_style = Style{};
     new_style.foreground = Color{ .Grey = 1 };
 
-    try updateStyle(fixed_buf_stream.writer(), new_style, CellStyle{});
+    try updateStyle(fixed_buf_stream.writer(), new_style, Style{});
 
     const expected = "\x1B[38;2;1;1;1m";
     const actual = fixed_buf_stream.getWritten();
@@ -303,10 +302,10 @@ test "Grey foreground color" {
 test "Grey background color" {
     var buf: [1024]u8 = undefined;
     var fixed_buf_stream = fixedBufferStream(&buf);
-    var new_style = CellStyle{};
+    var new_style = Style{};
     new_style.background = Color{ .Grey = 1 };
 
-    try updateStyle(fixed_buf_stream.writer(), new_style, CellStyle{});
+    try updateStyle(fixed_buf_stream.writer(), new_style, Style{});
 
     const expected = "\x1B[48;2;1;1;1m";
     const actual = fixed_buf_stream.getWritten();

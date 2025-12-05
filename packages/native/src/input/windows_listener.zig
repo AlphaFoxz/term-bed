@@ -1,9 +1,16 @@
 const std = @import("std");
+const builtin = @import("builtin");
 const logger = @import("../core/logger.zig");
 const windows = std.os.windows;
 const mode = @import("./windows_mode.zig");
 const event_bus = @import("../core/event_bus.zig");
 const mapper = @import("./windows_mapper.zig");
+
+comptime {
+    if (builtin.os.tag != .windows) {
+        @compileError("Unsupported OS: Not Windows");
+    }
+}
 
 var thread: std.Thread = undefined;
 var thread_started: bool = false;
@@ -100,6 +107,7 @@ const InputState = enum {
     Normal,
     EscReceived, // 收到了 \x1b
     CsiReceived, // 收到了 [
+    Ss3Received,
     // 实际的 parser 可能会更复杂，这里简化演示
 };
 
@@ -188,7 +196,7 @@ const Parser = struct {
 
     pub fn processEvent(self: *Parser, record: KEY_EVENT_RECORD) void {
         // 1. 过滤掉按键释放事件 (通常 TUI 不需要处理 KeyUp)
-        if (record.bKeyDown == 0) return;
+        if (record.bKeyDown == windows.FALSE) return;
 
         const char_code = record.uChar.UnicodeChar;
 
@@ -200,6 +208,21 @@ const Parser = struct {
         if (char_code > 0xFF) { // 大于 255 基本上就是宽字符了
             logger.logDebugFmt("汉字/Unicode输入: {u} (Code: {d})", .{ char_code, char_code });
             self.reset();
+            _ = event_bus.event_bus_emit_bytes(
+                @intFromEnum(event_bus.EventType.KeyboardEvent),
+                keyboardEventJson(
+                    IS_UNICODE_KEY,
+                    .{
+                        .key = "",
+                        .is_shift = false,
+                        .is_alt = false,
+                        .is_ctrl = false,
+                        .is_meta = false,
+                        .is_repeat = false,
+                        .char_code = char_code,
+                    },
+                ),
+            );
             return;
         }
 
@@ -226,6 +249,10 @@ const Parser = struct {
                     self.state = .CsiReceived;
                     self.buffer[self.buf_idx] = ascii;
                     self.buf_idx += 1;
+                } else if (ascii == 'O') {
+                    self.state = .Ss3Received;
+                    self.buffer[self.buf_idx] = ascii;
+                    self.buf_idx += 1;
                 } else {
                     // 如果 ESC 后面跟的不是 [，那说明用户就是按了一下 ESC，然后按了别的键
                     // 处理之前的 ESC
@@ -244,7 +271,16 @@ const Parser = struct {
                 // 鼠标 VT 序列通常以 'M' (按下) 或 'm' (释放) 结尾
                 // 普通功能键通常以 '~' 或 字母(A-Z) 结尾
                 if ((ascii >= 'A' and ascii <= 'Z') or (ascii >= 'a' and ascii <= 'z') or ascii == '~') {
-                    self.parseSequence();
+                    self.parseBufferedSequence();
+                    self.reset();
+                }
+            },
+            .Ss3Received => {
+                // 三个字节的序列
+                self.buffer[self.buf_idx] = ascii;
+                self.buf_idx += 1;
+                if (self.buf_idx == 3) {
+                    self.parseBufferedSequence();
                     self.reset();
                 }
             },
@@ -266,8 +302,6 @@ const Parser = struct {
             // 情况 1: 特殊键 (F1, Home, Arrow, etc.)
             // char 字段设为 null，只传 code
             logger.logDebugFmt("特殊键: {}", .{virtual_code});
-            // To learn more about `virtual_code` and `key_name`,
-            // see https://developer.mozilla.org/en-US/docs/Web/API/UI_Events/Keyboard_event_key_values
 
             slice = keyboardEventJson(IS_VIRTUAL_KEY, .{
                 .key = if (mapper.mapVirtualKeyName(virtual_code)) |name| name else "Unidentified",
@@ -316,127 +350,133 @@ const Parser = struct {
         }
     }
 
-    fn parseSequence(self: *Parser) void {
+    fn parseBufferedSequence(self: *Parser) void {
         const seq = self.buffer[0..self.buf_idx];
+        if (std.mem.startsWith(u8, seq, "\x1bO")) {
+            self.parseSs3Sequence(seq);
+            return;
+        } else if (std.mem.startsWith(u8, seq, "\x1b[<")) {
+            self.parseSgrMouseSequence(seq);
+            return;
+        } else if (std.mem.startsWith(u8, seq, "\x1b[")) {
+            self.parseCsiSequence(seq);
+            return;
+        } else {
+            logger.logDebugFmt("未知序列: {x}", .{seq});
+            return;
+        }
+    }
 
-        // 简单的判断演示
-        if (std.mem.startsWith(u8, seq, "\x1b[<")) {
-            // 这是一个 SGR 鼠标模式序列: \x1b[<b;x;yM
-            if (seq.len < 6) return;
-            const content = seq[3 .. seq.len - 1];
-            const is_release = seq[seq.len - 1] == 'm'; // 'M' (按下/移动) 或 'm' (松开)
+    fn parseSs3Sequence(_: *Parser, seq: []const u8) void {
+        if (!std.mem.startsWith(u8, seq, "\x1bO")) {
+            logger.logDebugFmt("未知SS3序列: {x}", .{seq});
+            return;
+        }
+        const last_char = seq[seq.len - 1];
+        if (last_char >= 'P' and last_char <= 'S') {
+            logger.logDebugFmt("功能键: F{d}", .{last_char - 'P' + 1});
+            const key = if (last_char == 'P')
+                "F1"
+            else if (last_char == 'Q')
+                "F2"
+            else if (last_char == 'R')
+                "F3"
+            else if (last_char == 'S')
+                "F4"
+            else
+                "";
+            _ = event_bus.event_bus_emit_bytes(
+                @intFromEnum(event_bus.EventType.KeyboardEvent),
+                keyboardEventJson(
+                    IS_VIRTUAL_KEY,
+                    .{
+                        .key = key,
+                        .is_shift = false,
+                        .is_alt = false,
+                        .is_ctrl = false,
+                        .is_meta = false,
+                        .char_code = 0,
+                        .is_repeat = false,
+                    },
+                ),
+            );
+        }
+    }
 
-            var iter = std.mem.splitScalar(u8, content, ';');
-            const pb_str = iter.next() orelse return;
-            const px_str = iter.next() orelse return;
-            const py_str = iter.next() orelse return;
+    fn parseSgrMouseSequence(_: *Parser, seq: []const u8) void {
+        // 这是一个 SGR 鼠标模式序列: \x1b[<b;x;yM
+        if (seq.len < 6) return;
+        const content = seq[3 .. seq.len - 1];
+        const is_release = seq[seq.len - 1] == 'm'; // 'M' (按下/移动) 或 'm' (松开)
 
-            var pb = std.fmt.parseInt(u8, pb_str, 10) catch return;
-            const px = std.fmt.parseInt(u16, px_str, 10) catch return;
-            const py = std.fmt.parseInt(u16, py_str, 10) catch return;
-            const is_shift = (pb & 0x04) != 0;
-            if (is_shift) {
-                pb ^= 0x04;
-            }
-            const is_alt = (pb & 0x08) != 0;
-            if (is_alt) {
-                pb ^= 0x08;
-            }
-            const is_ctrl = (pb & 0x10) != 0;
-            if (is_ctrl) {
-                pb ^= 0x10;
-            }
-            const is_drag = (pb & 0x20) != 0;
-            if (is_drag) {
-                pb ^= 0x20;
-            }
+        var iter = std.mem.splitScalar(u8, content, ';');
+        const pb_str = iter.next() orelse return;
+        const px_str = iter.next() orelse return;
+        const py_str = iter.next() orelse return;
 
-            var button: ?[]const u8 = null;
-            var buttons: ?[]const u8 = null;
+        var pb = std.fmt.parseInt(u8, pb_str, 10) catch return;
+        const px = std.fmt.parseInt(u16, px_str, 10) catch return;
+        const py = std.fmt.parseInt(u16, py_str, 10) catch return;
+        const is_shift = (pb & 0x04) != 0;
+        if (is_shift) {
+            pb ^= 0x04;
+        }
+        const is_alt = (pb & 0x08) != 0;
+        if (is_alt) {
+            pb ^= 0x08;
+        }
+        const is_ctrl = (pb & 0x10) != 0;
+        if (is_ctrl) {
+            pb ^= 0x10;
+        }
+        const is_drag = (pb & 0x20) != 0;
+        if (is_drag) {
+            pb ^= 0x20;
+        }
 
-            switch (pb) {
-                0 => {
-                    logger.logDebugFmt("鼠标左键{s}，x: {}, y: {}", .{
-                        if (is_release) "释放" else "按下",
-                        px,
-                        py,
-                    });
-                    button = "0";
-                },
-                1 => {
-                    logger.logDebugFmt("鼠标中键{s}，x: {}, y: {}", .{
-                        if (is_release) "释放" else "按下",
-                        px,
-                        py,
-                    });
-                    button = "1";
-                },
-                2 => {
-                    logger.logDebugFmt("鼠标右键{s}，x: {}, y: {}", .{
-                        if (is_release) "释放" else "按下",
-                        px,
-                        py,
-                    });
-                    button = "2";
-                },
-                3 => {
-                    logger.logDebugFmt("鼠标移动，x: {}, y: {}, 是否拖动: {}", .{ px, py, is_drag });
-                    if (is_drag) {
-                        buttons = "1";
-                    } else {
-                        buttons = "0";
-                    }
-                },
-                64 => {
-                    logger.logDebugFmt("鼠标滚轮上，x: {}, y: {}", .{ px, py });
-                    _ = event_bus.event_bus_emit_bytes(
-                        @intFromEnum(event_bus.EventType.WheelEvent),
-                        wheelEventJson(
-                            .{
-                                .button = "1",
-                                .buttons = "null",
-                                .x = px,
-                                .y = py,
-                                .is_shift = is_shift,
-                                .is_alt = is_alt,
-                                .is_ctrl = is_ctrl,
-                                .is_meta = false,
-                                .wheel_delta_y = -1,
-                            },
-                        ),
-                    );
-                    return;
-                },
-                65 => {
-                    logger.logDebugFmt("鼠标滚轮下，x: {}, y: {}", .{ px, py });
-                    _ = event_bus.event_bus_emit_bytes(
-                        @intFromEnum(event_bus.EventType.WheelEvent),
-                        wheelEventJson(
-                            .{
-                                .button = "1",
-                                .buttons = "null",
-                                .x = px,
-                                .y = py,
-                                .is_shift = is_shift,
-                                .is_alt = is_alt,
-                                .is_ctrl = is_ctrl,
-                                .is_meta = false,
-                                .wheel_delta_y = 1,
-                            },
-                        ),
-                    );
-                    return;
-                },
-                else => {
-                    logger.logWarningFmt("不支持的鼠标事件序列，pb: {}, x: {}, y: {}", .{ pb, px, py });
-                },
-            }
-            if (button) |b| {
+        var button: ?[]const u8 = null;
+        var buttons: ?[]const u8 = null;
+
+        switch (pb) {
+            0 => {
+                logger.logDebugFmt("鼠标左键{s}，x: {}, y: {}", .{
+                    if (is_release) "释放" else "按下",
+                    px,
+                    py,
+                });
+                button = "0";
+            },
+            1 => {
+                logger.logDebugFmt("鼠标中键{s}，x: {}, y: {}", .{
+                    if (is_release) "释放" else "按下",
+                    px,
+                    py,
+                });
+                button = "1";
+            },
+            2 => {
+                logger.logDebugFmt("鼠标右键{s}，x: {}, y: {}", .{
+                    if (is_release) "释放" else "按下",
+                    px,
+                    py,
+                });
+                button = "2";
+            },
+            3 => {
+                logger.logDebugFmt("鼠标移动，x: {}, y: {}, 是否拖动: {}", .{ px, py, is_drag });
+                if (is_drag) {
+                    buttons = "1";
+                } else {
+                    buttons = "0";
+                }
+            },
+            64 => {
+                logger.logDebugFmt("鼠标滚轮上，x: {}, y: {}", .{ px, py });
                 _ = event_bus.event_bus_emit_bytes(
-                    @intFromEnum(event_bus.EventType.MouseEvent),
-                    mouseEventJson(
+                    @intFromEnum(event_bus.EventType.WheelEvent),
+                    wheelEventJson(
                         .{
-                            .button = b,
+                            .button = "1",
                             .buttons = "null",
                             .x = px,
                             .y = py,
@@ -444,67 +484,115 @@ const Parser = struct {
                             .is_alt = is_alt,
                             .is_ctrl = is_ctrl,
                             .is_meta = false,
+                            .wheel_delta_y = -1,
                         },
                     ),
                 );
-            } else if (buttons) |b| {
+                return;
+            },
+            65 => {
+                logger.logDebugFmt("鼠标滚轮下，x: {}, y: {}", .{ px, py });
                 _ = event_bus.event_bus_emit_bytes(
-                    @intFromEnum(event_bus.EventType.MouseEvent),
-                    mouseEventJson(
+                    @intFromEnum(event_bus.EventType.WheelEvent),
+                    wheelEventJson(
                         .{
-                            .button = "null",
-                            .buttons = b,
+                            .button = "1",
+                            .buttons = "null",
                             .x = px,
                             .y = py,
                             .is_shift = is_shift,
                             .is_alt = is_alt,
                             .is_ctrl = is_ctrl,
                             .is_meta = false,
+                            .wheel_delta_y = 1,
                         },
                     ),
                 );
-            }
+                return;
+            },
+            else => {
+                logger.logWarningFmt("不支持的鼠标事件序列，pb: {}, x: {}, y: {}", .{ pb, px, py });
+            },
+        }
+        if (button) |b| {
+            _ = event_bus.event_bus_emit_bytes(
+                @intFromEnum(event_bus.EventType.MouseEvent),
+                mouseEventJson(
+                    .{
+                        .button = b,
+                        .buttons = "null",
+                        .x = px,
+                        .y = py,
+                        .is_shift = is_shift,
+                        .is_alt = is_alt,
+                        .is_ctrl = is_ctrl,
+                        .is_meta = false,
+                    },
+                ),
+            );
+        } else if (buttons) |b| {
+            _ = event_bus.event_bus_emit_bytes(
+                @intFromEnum(event_bus.EventType.MouseEvent),
+                mouseEventJson(
+                    .{
+                        .button = "null",
+                        .buttons = b,
+                        .x = px,
+                        .y = py,
+                        .is_shift = is_shift,
+                        .is_alt = is_alt,
+                        .is_ctrl = is_ctrl,
+                        .is_meta = false,
+                    },
+                ),
+            );
+        } else {
+            logger.logDebugFmt("未知SGR鼠标序列: {x}", .{seq});
             return;
         }
-        var vkey: ?u16 = null;
-        if (std.mem.eql(u8, seq, "\x1b[A")) {
-            logger.logDebugFmt("功能键: UP", .{});
-            vkey = mapper.VK_UP;
-        } else if (std.mem.eql(u8, seq, "\x1b[B")) {
-            logger.logDebugFmt("功能键: DOWN", .{});
-            vkey = mapper.VK_DOWN;
-        } else if (std.mem.eql(u8, seq, "\x1b[C")) {
-            logger.logDebugFmt("功能键: RIGHT", .{});
-            vkey = mapper.VK_RIGHT;
-        } else if (std.mem.eql(u8, seq, "\x1b[D")) {
-            logger.logDebugFmt("功能键: LEFT", .{});
-            vkey = mapper.VK_LEFT;
-        } else if (std.mem.eql(u8, seq, "\x1b[H")) {
-            logger.logDebugFmt("功能键: HOME", .{});
-            vkey = mapper.VK_HOME;
-        } else if (std.mem.eql(u8, seq, "\x1b[F")) {
-            logger.logDebugFmt("功能键: END", .{});
-            vkey = mapper.VK_END;
-        } else if (std.mem.eql(u8, seq, "\x1b[5~")) {
-            logger.logDebugFmt("功能键: PAGEUP", .{});
-            vkey = mapper.VK_PRIOR;
-        } else if (std.mem.eql(u8, seq, "\x1b[6~")) {
-            logger.logDebugFmt("功能键: PAGEDOWN", .{});
-            vkey = mapper.VK_NEXT;
-        } else if (std.mem.eql(u8, seq, "\x1b[2~")) {
-            logger.logDebugFmt("功能键: INSERT", .{});
-            vkey = mapper.VK_INSERT;
-        } else if (std.mem.eql(u8, seq, "\x1b[3~")) {
-            logger.logDebugFmt("功能键: DELETE", .{});
-            vkey = mapper.VK_DELETE;
-        } else {
+    }
+
+    fn parseCsiSequence(_: *Parser, seq: []const u8) void {
+        const vkey: ?u16 = blk: {
+            if (std.mem.eql(u8, seq, "\x1b[A")) break :blk mapper.VK_UP;
+            if (std.mem.eql(u8, seq, "\x1b[B")) break :blk mapper.VK_DOWN;
+            if (std.mem.eql(u8, seq, "\x1b[C")) break :blk mapper.VK_RIGHT;
+            if (std.mem.eql(u8, seq, "\x1b[D")) break :blk mapper.VK_LEFT;
+            if (std.mem.eql(u8, seq, "\x1b[H")) break :blk mapper.VK_HOME;
+            if (std.mem.eql(u8, seq, "\x1b[F")) break :blk mapper.VK_END;
+
+            if (std.mem.eql(u8, seq, "\x1b[5~")) break :blk mapper.VK_PRIOR; // PageUp
+            if (std.mem.eql(u8, seq, "\x1b[6~")) break :blk mapper.VK_NEXT; // PageDown
+            if (std.mem.eql(u8, seq, "\x1b[2~")) break :blk mapper.VK_INSERT;
+            if (std.mem.eql(u8, seq, "\x1b[3~")) break :blk mapper.VK_DELETE;
+
+            if (std.mem.eql(u8, seq, "\x1b[15~")) break :blk mapper.VK_F5;
+            if (std.mem.eql(u8, seq, "\x1b[17~")) break :blk mapper.VK_F6;
+            if (std.mem.eql(u8, seq, "\x1b[18~")) break :blk mapper.VK_F7;
+            if (std.mem.eql(u8, seq, "\x1b[19~")) break :blk mapper.VK_F8;
+            if (std.mem.eql(u8, seq, "\x1b[20~")) break :blk mapper.VK_F9;
+            if (std.mem.eql(u8, seq, "\x1b[21~")) break :blk mapper.VK_F10;
+            if (std.mem.eql(u8, seq, "\x1b[23~")) break :blk mapper.VK_F11;
+            if (std.mem.eql(u8, seq, "\x1b[24~")) break :blk mapper.VK_F12;
+            if (std.mem.eql(u8, seq, "\x1b[25~")) break :blk mapper.VK_F13;
+            if (std.mem.eql(u8, seq, "\x1b[26~")) break :blk mapper.VK_F14;
+            if (std.mem.eql(u8, seq, "\x1b[27~")) break :blk mapper.VK_F15;
+            if (std.mem.eql(u8, seq, "\x1b[28~")) break :blk mapper.VK_F16;
+            if (std.mem.eql(u8, seq, "\x1b[29~")) break :blk mapper.VK_F17;
+            if (std.mem.eql(u8, seq, "\x1b[30~")) break :blk mapper.VK_F18;
+            if (std.mem.eql(u8, seq, "\x1b[31~")) break :blk mapper.VK_F19;
+            if (std.mem.eql(u8, seq, "\x1b[32~")) break :blk mapper.VK_F20;
+
             logger.logDebugFmt("其他 ANSI 序列: {x}", .{seq});
-        }
+            break :blk null;
+        };
         if (vkey) |k| {
+            const name = mapper.mapVirtualKeyName(k) orelse "Unidentified";
+            logger.logDebugFmt("功能键: {s}", .{name});
             _ = keyboardEventJson(
                 IS_VIRTUAL_KEY,
                 .{
-                    .key = if (mapper.mapVirtualKeyName(k)) |name| name else "Unidentified",
+                    .key = name,
                     .is_shift = false,
                     .is_alt = false,
                     .is_ctrl = false,
@@ -548,7 +636,7 @@ fn listen() void {
             128,
             &events_read,
         ) == 0) {
-            logger.logError("ReadConsoleInputEx failed");
+            logger.logError("ReadConsoleInputW failed");
             break;
         }
 
@@ -632,8 +720,4 @@ inline fn handleMouseEvent(record: INPUT_RECORD) void {
 var parser = Parser{};
 inline fn handleKeyEvent(record: INPUT_RECORD) void {
     parser.processEvent(record.Event.KeyEvent);
-    // const key = record.Event.KeyEvent;
-    // if (key.bKeyDown != 0) {
-    //     logger.logDebugFmt("key down: {X:0>4}", .{key.wVirtualKeyCode});
-    // }
 }

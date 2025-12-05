@@ -1,18 +1,158 @@
 const std = @import("std");
 const meta = std.meta;
-const expect = std.testing.expect;
-const expectEqual = std.testing.expectEqual;
+const testing = std.testing;
 
-pub const ColorRGB = struct {
-    r: u8,
-    g: u8,
+pub const Rgba = packed struct {
+    a: u8,
     b: u8,
+    g: u8,
+    r: u8,
 
-    const Self = @This();
-
-    pub fn eql(self: Self, other: Self) bool {
-        return meta.eql(self, other);
+    pub fn toU32(self: Rgba) u32 {
+        if (self.a > 100) {
+            const v: u32 = @bitCast(self);
+            return v & 0xFFFFFF00 | 100;
+        }
+        return @bitCast(self);
     }
+    pub fn eql(self: Rgba, other: Rgba) bool {
+        return self.toU32() == other.toU32();
+    }
+    pub fn fromU32(bits: u32) Rgba {
+        if (bits & 0x000000FF > 100) {
+            return @bitCast(bits & 0xFFFFFF00 | 100);
+        }
+        return @bitCast(bits);
+    }
+    pub fn alphaBlending(self: *Rgba, under: Rgba) void {
+        if (self.a >= 100) {
+            return;
+        }
+        const alpha: u32 = self.a;
+        const inv_alpha: u32 = 100 - alpha;
+        self.r = @intCast((@as(u32, self.r) * alpha + @as(u32, under.r) * inv_alpha) / 100);
+        self.g = @intCast((@as(u32, self.g) * alpha + @as(u32, under.g) * inv_alpha) / 100);
+        self.b = @intCast((@as(u32, self.b) * alpha + @as(u32, under.b) * inv_alpha) / 100);
+        self.a = 100;
+    }
+};
+
+test "Rgba and u32" {
+    const white = Rgba{ .r = 0, .g = 0, .b = 0, .a = 100 };
+    try testing.expect(white.toU32() == 0x0 + 100);
+
+    const red = Rgba.fromU32(0xFF000000 + 100);
+    const same_red = Rgba{ .r = 0xFF, .g = 0, .b = 0, .a = 100 };
+    try testing.expectEqual(red.toU32(), same_red.toU32());
+    try testing.expect(red == same_red);
+    try testing.expect(meta.eql(red, same_red));
+}
+
+test "Rgba too much alpha" {
+    const red = Rgba.fromU32(0xFF000064);
+    const same_red = Rgba.fromU32(0xFF0000FF);
+    try testing.expectEqual(red.toU32(), same_red.toU32());
+    try testing.expect(red == same_red);
+    try testing.expect(meta.eql(red, same_red));
+}
+
+test "Rgba eql" {
+    const rgba = Rgba{ .a = 100, .b = 0, .g = 0, .r = 0 };
+    const rgba2 = Rgba{ .a = 100, .b = 0, .g = 0, .r = 0 };
+    try testing.expect(rgba.eql(rgba2));
+}
+
+pub const GrayColor = packed struct {
+    value: u8,
+
+    pub fn toU32(self: GrayColor) u32 {
+        const val = @as(u32, self.value);
+        return val << 24 | val << 16 | val << 8 | 100;
+    }
+    pub fn eql(self: GrayColor, other: GrayColor) bool {
+        return self.value == other.value;
+    }
+};
+
+const STANDARD_COLORS = [_]u32{
+    0x000000FF, // 0: Black
+    0x800000FF, // 1: Red
+    0x008000FF, // 2: Green
+    0x808000FF, // 3: Yellow
+    0x000080FF, // 4: Blue
+    0x800080FF, // 5: Magenta
+    0x008080FF, // 6: Cyan
+    0xc0c0c0FF, // 7: White (Light Grey)
+    0x808080FF, // 8: Bright Black (Grey)
+    0xff0000FF, // 9: Bright Red
+    0x00ff00FF, // 10: Bright Green
+    0xffff00FF, // 11: Bright Yellow
+    0x0000ffFF, // 12: Bright Blue
+    0xff00ffFF, // 13: Bright Magenta
+    0x00ffffFF, // 14: Bright Cyan
+    0xffffffFF, // 15: Bright White
+};
+pub const FixedColor = packed struct {
+    value: u8,
+
+    pub fn toRgba(self: FixedColor) Rgba {
+        return Rgba.fromU32(self.toU32());
+    }
+    pub fn toU32(self: FixedColor) u32 {
+        const fixed = self.value;
+        // 1. 标准色 (0-15)
+        // 使用 XTerm 默认配色值
+        if (fixed < 16) {
+            return STANDARD_COLORS[fixed];
+        }
+
+        // 2. 灰度阶梯 (232-255)
+        // 范围从 0x08 到 0xEE，步长为 10
+        if (fixed >= 232) {
+            const v: u32 = @intCast((fixed - 232) * 10 + 8);
+            const result: u32 = 0;
+            return result | v << 24 | v << 16 | v << 8 | 100;
+        }
+
+        // 3. 6x6x6 颜色立方体 (16-231)
+        // 公式: index = 16 + 36*r + 6*g + b
+        // r, g, b 范围是 0-5
+        var val = fixed - 16;
+
+        const b_idx = val % 6;
+        val /= 6;
+        const g_idx = val % 6;
+        val /= 6;
+        const r_idx = val; // 剩余的就是 r (val % 6 也可以)
+
+        // 映射函数: 0->0, 1-5 -> (idx * 40 + 55)
+        // 对应值: 0, 95, 135, 175, 215, 255
+        return mapCubeValues(r_idx, g_idx, b_idx);
+    }
+    pub fn eql(self: GrayColor, other: anytype) bool {
+        return self.toU32() == other.toU32();
+    }
+    // 辅助函数：将 0-5 的立方体索引映射为 0-255 的颜色值
+    inline fn mapCubeValue(val: u8) u8 {
+        if (val == 0) return 0;
+        return val * 40 + 55;
+    }
+    inline fn mapCubeValues(r: u8, g: u8, b: u8) u32 {
+        const result: u32 = 0;
+        return result | @as(u32, r) * 40 + 55 << 24 | @as(u32, g) * 40 + 55 << 16 | @as(u32, b) * 40 + 55 << 8 | 100;
+    }
+};
+
+pub const BuiltinRgbaColor = struct {
+    pub const Black = Rgba{ .r = 0x00, .g = 0x00, .b = 0x00, .a = 100 };
+    pub const Red = Rgba{ .r = 0xFF, .g = 0x00, .b = 0x00, .a = 100 };
+    pub const Green = Rgba{ .r = 0x00, .g = 0xFF, .b = 0x00, .a = 100 };
+    pub const Yellow = Rgba{ .r = 0xFF, .g = 0xFF, .b = 0x00, .a = 100 };
+    pub const Blue = Rgba{ .r = 0x00, .g = 0x00, .b = 0xFF, .a = 100 };
+    pub const Magenta = Rgba{ .r = 0xFF, .g = 0x00, .b = 0xFF, .a = 100 };
+    pub const Cyan = Rgba{ .r = 0x00, .g = 0xFF, .b = 0xFF, .a = 100 };
+    pub const White = Rgba{ .r = 0xFF, .g = 0xFF, .b = 0xFF, .a = 100 };
+    pub const Grey = Rgba{ .r = 0x7F, .g = 0x7F, .b = 0x7F, .a = 100 };
 };
 
 pub const Color = union(enum) {
@@ -25,14 +165,42 @@ pub const Color = union(enum) {
     Magenta,
     Cyan,
     White,
-    Fixed: u8,
-    Grey: u8,
-    RGB: ColorRGB,
+    Fixed: FixedColor,
+    Grey: GrayColor,
+    Rgba: Rgba,
 
-    const Self = @This();
+    pub fn eql(self: Color, other: Color) bool {
+        const Tag = std.meta.Tag(Color);
+        const s_tag: Tag = self; // 自动转换获取 tag
+        const o_tag: Tag = other;
+        if (s_tag == o_tag) {
+            return switch (self) {
+                .Fixed => |v| v == other.Fixed,
+                .Grey => |v| v == other.Grey,
+                .Rgba => |v| @as(u32, @bitCast(v)) == @as(u32, @bitCast(other.Rgba)),
+                // 对于 Default, Black 等没有负载的标签，Tag 相同即相等
+                else => true,
+            };
+        }
+        if (isValueColor(s_tag) and isValueColor(o_tag)) {
+            return self.toU32() == other.toU32();
+        }
+        return false;
+    }
 
-    pub fn eql(self: Self, other: Self) bool {
-        return meta.eql(self, other);
+    inline fn isValueColor(tag: std.meta.Tag(Color)) bool {
+        return switch (tag) {
+            .Fixed, .Grey, .Rgba => true,
+            else => false,
+        };
+    }
+    inline fn toU32(self: Color) u32 {
+        return switch (self) {
+            .Fixed => |v| v.toU32(),
+            .Grey => |v| v.toU32(),
+            .Rgba => |v| v.toU32(),
+            else => 0,
+        };
     }
 };
 
@@ -85,12 +253,12 @@ pub const FontStyle = packed struct {
 };
 
 test "FontStyle bits" {
-    try expectEqual(@as(u11, 0), (FontStyle{}).toU11());
-    try expectEqual(@as(u11, 1), (FontStyle{ .bold = true }).toU11());
-    try expectEqual(@as(u11, 1 << 2), (FontStyle{ .italic = true }).toU11());
-    try expectEqual(@as(u11, 1 << 2) | 1, (FontStyle{ .bold = true, .italic = true }).toU11());
-    try expectEqual(FontStyle{}, FontStyle.fromU11((FontStyle{}).toU11()));
-    try expectEqual(FontStyle{ .bold = true }, FontStyle.fromU11((FontStyle{ .bold = true }).toU11()));
+    try testing.expectEqual(@as(u11, 0), (FontStyle{}).toU11());
+    try testing.expectEqual(@as(u11, 1), (FontStyle{ .bold = true }).toU11());
+    try testing.expectEqual(@as(u11, 1 << 2), (FontStyle{ .italic = true }).toU11());
+    try testing.expectEqual(@as(u11, 1 << 2) | 1, (FontStyle{ .bold = true, .italic = true }).toU11());
+    try testing.expectEqual(FontStyle{}, FontStyle.fromU11((FontStyle{}).toU11()));
+    try testing.expectEqual(FontStyle{ .bold = true }, FontStyle.fromU11((FontStyle{ .bold = true }).toU11()));
 }
 
 test "FontStyle subsetOf" {
@@ -99,18 +267,18 @@ test "FontStyle subsetOf" {
     const italic = FontStyle{ .italic = true };
     const bold_and_italic = FontStyle{ .bold = true, .italic = true };
 
-    try expect(default.subsetOf(default));
-    try expect(default.subsetOf(bold));
-    try expect(bold.subsetOf(bold));
-    try expect(!bold.subsetOf(default));
-    try expect(!bold.subsetOf(italic));
-    try expect(default.subsetOf(bold_and_italic));
-    try expect(bold.subsetOf(bold_and_italic));
-    try expect(italic.subsetOf(bold_and_italic));
-    try expect(bold_and_italic.subsetOf(bold_and_italic));
-    try expect(!bold_and_italic.subsetOf(bold));
-    try expect(!bold_and_italic.subsetOf(italic));
-    try expect(!bold_and_italic.subsetOf(default));
+    try testing.expect(default.subsetOf(default));
+    try testing.expect(default.subsetOf(bold));
+    try testing.expect(bold.subsetOf(bold));
+    try testing.expect(!bold.subsetOf(default));
+    try testing.expect(!bold.subsetOf(italic));
+    try testing.expect(default.subsetOf(bold_and_italic));
+    try testing.expect(bold.subsetOf(bold_and_italic));
+    try testing.expect(italic.subsetOf(bold_and_italic));
+    try testing.expect(bold_and_italic.subsetOf(bold_and_italic));
+    try testing.expect(!bold_and_italic.subsetOf(bold));
+    try testing.expect(!bold_and_italic.subsetOf(italic));
+    try testing.expect(!bold_and_italic.subsetOf(default));
 }
 
 test "FontStyle without" {
@@ -119,25 +287,23 @@ test "FontStyle without" {
     const italic = FontStyle{ .italic = true };
     const bold_and_italic = FontStyle{ .bold = true, .italic = true };
 
-    try expectEqual(default, default.without(default));
-    try expectEqual(bold, bold.without(default));
-    try expectEqual(default, bold.without(bold));
-    try expectEqual(bold, bold.without(italic));
-    try expectEqual(bold, bold_and_italic.without(italic));
-    try expectEqual(italic, bold_and_italic.without(bold));
-    try expectEqual(default, bold_and_italic.without(bold_and_italic));
+    try testing.expectEqual(default, default.without(default));
+    try testing.expectEqual(bold, bold.without(default));
+    try testing.expectEqual(default, bold.without(bold));
+    try testing.expectEqual(bold, bold.without(italic));
+    try testing.expectEqual(bold, bold_and_italic.without(italic));
+    try testing.expectEqual(italic, bold_and_italic.without(bold));
+    try testing.expectEqual(default, bold_and_italic.without(bold_and_italic));
 }
 
-pub const Style = struct {
+pub const CellStyle = struct {
     foreground: Color = .Default,
     background: Color = .Default,
     font_style: FontStyle = FontStyle{},
 
-    const Self = @This();
-
     /// Returns true iff this style equals the other style in
     /// foreground color, background color and font style
-    pub fn eql(self: Self, other: Self) bool {
+    pub fn eql(self: CellStyle, other: CellStyle) bool {
         if (!self.font_style.eql(other.font_style))
             return false;
 
@@ -148,29 +314,29 @@ pub const Style = struct {
     }
 
     /// Returns true iff this style equals the default set of styles
-    pub fn isDefault(self: Self) bool {
-        return eql(self, Self{});
+    pub fn isDefault(self: CellStyle) bool {
+        return eql(self, CellStyle{});
     }
 
     pub const parse = @import("parse_style.zig").parseStyle;
 };
 
 test "style equality" {
-    const a = Style{};
-    const b = Style{
+    const a = CellStyle{};
+    const b = CellStyle{
         .font_style = .{ .bold = true },
     };
-    const c = Style{
+    const c = CellStyle{
         .foreground = .Red,
     };
 
-    try expect(a.isDefault());
+    try testing.expect(a.isDefault());
 
-    try expect(a.eql(a));
-    try expect(b.eql(b));
-    try expect(c.eql(c));
+    try testing.expect(a.eql(a));
+    try testing.expect(b.eql(b));
+    try testing.expect(c.eql(c));
 
-    try expect(!a.eql(b));
-    try expect(!b.eql(a));
-    try expect(!a.eql(c));
+    try testing.expect(!a.eql(b));
+    try testing.expect(!b.eql(a));
+    try testing.expect(!a.eql(c));
 }

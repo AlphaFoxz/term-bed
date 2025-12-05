@@ -11,13 +11,21 @@ const logger = @import("./core/logger.zig");
 const event_bus = @import("./core/event_bus.zig");
 
 // ======================== app ========================
-pub export fn setupLogger(cdir_path: [*:0]const u8, log_level: logger.LOG_LEVEL) void {
+pub export fn setupLogger(
+    cdir_path: [*:0]const u8,
+    clog_name: [*:0]const u8,
+    log_level: logger.LOG_LEVEL,
+) void {
     const alloc = glo_alloc.allocator();
     const dir_path = alloc.dupe(u8, std.mem.span(cdir_path)) catch {
         std.log.err("Out of memory", .{});
         std.process.exit(1);
     };
-    return logger.load(dir_path, log_level);
+    const log_name = alloc.dupe(u8, std.mem.span(clog_name)) catch {
+        std.log.err("Out of memory", .{});
+        std.process.exit(1);
+    };
+    return logger.load(dir_path, log_name, log_level);
 }
 
 pub export fn createApp() *tui_app.TuiApp {
@@ -59,8 +67,8 @@ pub export fn event_bus_stats(out_pending: *u64) void {
 }
 
 // ======================== widgets =======================
-pub export fn createSceneWidget(visible: bool) *widgets.Widget {
-    var w: widgets.Widget = .{ .scene = widgets.scene.Scene.init(visible) };
+pub export fn createSceneWidget(visible: bool, bg_hex_rgb: u32) *widgets.Widget {
+    var w: widgets.Widget = .{ .scene = widgets.scene.Scene.init(visible, ansi.style.Rgba.fromU32((bg_hex_rgb << 8) + 100)) };
     return &w;
 }
 

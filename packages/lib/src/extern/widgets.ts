@@ -4,7 +4,7 @@ import { fetchDllPath, toCstring } from './util';
 const lib = dlopen(fetchDllPath(), {
     createSceneWidget: {
         returns: FFIType.pointer,
-        args: [FFIType.bool],
+        args: [FFIType.bool, FFIType.u32],
     },
     createTextWidget: {
         returns: FFIType.pointer,
@@ -24,11 +24,13 @@ export interface RectWidgetStyleOptions {
     visible?: boolean;
 }
 
-export interface SceneWidgetStyleOptions extends Pick<RectWidgetStyleOptions, 'visible'> {}
+export interface SceneWidgetStyleOptions extends Pick<RectWidgetStyleOptions, 'visible'> {
+    bgHexRgb?: number;
+}
 
 export default {
     createSceneWidget: (options?: SceneWidgetStyleOptions) => {
-        return lib.createSceneWidget(options?.visible || true);
+        return lib.createSceneWidget(options?.visible || true, options?.bgHexRgb || 0x000);
     },
     createTextWidget: (text: string, options?: RectWidgetStyleOptions): Pointer | null => {
         return lib.createTextWidget(

@@ -4,16 +4,16 @@ const err = @import("../error.zig");
 const glo_alloc = @import("../glo_alloc.zig");
 const typedef = @import("../typedef.zig");
 const TuiScale = typedef.TuiScale;
-
-pub const s = Scene;
+const Rgba = @import("../../ansi_util/style.zig").Rgba;
 
 pub const Scene = struct {
     alloc: std.mem.Allocator,
     id: u64,
     rect: wdt_common.WidgetInfo,
     visible: bool,
+    background_color: Rgba,
 
-    pub fn init(visible: bool) *Scene {
+    pub fn init(visible: bool, background_color: Rgba) *Scene {
         const alloc = glo_alloc.allocator();
         const ptr = alloc.create(Scene) catch {
             err.outOfMemory();
@@ -30,6 +30,7 @@ pub const Scene = struct {
                 .z_index = 0,
             },
             .visible = visible,
+            .background_color = background_color,
         };
         return ptr;
     }
