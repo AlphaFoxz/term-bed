@@ -11,28 +11,46 @@ const Rgba = @import("../ansi_util/style.zig").Rgba;
 const err = @import("./error.zig");
 const wdt_common = @import("./widgets/common.zig");
 
+pub const SceneInfo = extern struct {
+    id: u64,
+    background_color: Rgba,
+    visible: u8,
+
+    pub fn init(background_color: Rgba, visible: u8) *SceneInfo {
+        const info = glo_alloc.allocator().create(SceneInfo) catch {
+            err.outOfMemory();
+        };
+        info.* = SceneInfo{
+            .id = wdt_common.genId(),
+            .background_color = background_color,
+            .visible = visible,
+        };
+        return info;
+    }
+    pub fn deinit(self: *SceneInfo) void {
+        defer glo_alloc.allocator().destroy(self);
+    }
+};
+
 pub const Scene = struct {
     alloc: std.mem.Allocator,
-    id: u64,
-    visible: bool,
-    background_color: Rgba,
+    base_info: *SceneInfo,
 
-    pub fn init(visible: bool, background_color: Rgba) *Scene {
+    pub fn init(base_info: *SceneInfo) *Scene {
         const alloc = glo_alloc.allocator();
         const ptr = alloc.create(Scene) catch {
             err.outOfMemory();
         };
         ptr.* = Scene{
             .alloc = alloc,
-            .id = wdt_common.genId(),
-            .visible = visible,
-            .background_color = background_color,
+            .base_info = base_info,
         };
         return ptr;
     }
 
     pub fn deinit(self: *Scene) void {
         defer self.alloc.destroy(self);
+        self.base_info.deinit();
     }
 };
 

@@ -32,7 +32,7 @@ class App implements Disposable {
 
     start() {
         this.#ptr = app.createApp();
-        app.forceRenderApp(this.#ptr);
+        app.renderApp(this.#ptr);
         if (this.#debugMode) {
             EventBus.on(EventType.KeyboardEvent, async (data) => {
                 Logger.logDebug(`按键事件：${JSON.stringify(data)}`);
@@ -56,7 +56,7 @@ class App implements Disposable {
             if (!this.#running) {
                 return;
             }
-            // app.render(this.#ptr);
+            // app.renderApp(this.#ptr);
             setImmediate(consume);
         };
         consume();

@@ -9,7 +9,8 @@ const logger = @import("./core/logger.zig");
 
 const TuiApp = @import("./core/tui_app.zig").TuiApp;
 
-pub fn forceRenderApp(app_ptr: *TuiApp) void {
+pub fn forceRenderApp(_: *TuiApp) void {}
+pub fn renderApp(app_ptr: *TuiApp) void {
     // 1. 设置 UTF-8 编码（Windows）
     const writer: *Io.Writer = &std_io.writer.interface;
     const is_windows = @import("builtin").os.tag == .windows;

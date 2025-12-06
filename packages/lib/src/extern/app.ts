@@ -9,15 +9,19 @@ const lib = dlopen(fetchDllPath(), {
     },
     createApp: { returns: FFIType.pointer, args: [] },
     destroyApp: { returns: FFIType.void, args: [FFIType.pointer] },
+    createSceneInfo: {
+        returns: FFIType.pointer,
+        args: [FFIType.u32, FFIType.u8],
+    },
     createScene: {
         returns: FFIType.pointer,
-        args: [FFIType.bool, FFIType.u32],
+        args: [FFIType.pointer],
     },
     destroyScene: {
         returns: FFIType.void,
         args: [FFIType.pointer],
     },
-    forceRenderApp: { returns: FFIType.pointer, args: [FFIType.pointer] },
+    renderApp: { returns: FFIType.pointer, args: [FFIType.pointer] },
 }).symbols;
 
 export type LogLevel = 'debug' | 'info' | 'warning' | 'error';
@@ -64,14 +68,16 @@ export default {
         }
         lib.destroyApp(appPtr);
     },
-    createScene(options: SceneOptions): Pointer {
-        return assertPtr(lib.createScene(options.visible, options.bgHexRgb));
+    createSceneInfo(options: SceneOptions): Pointer {
+        return assertPtr(lib.createSceneInfo(options.bgHexRgb, options.visible ? 1 : 0));
+    },
+    createScene(infoPtr: Pointer): Pointer {
+        return assertPtr(lib.createScene(infoPtr));
     },
     destroyScene(scenePtr: Pointer | null) {
-        if (!scenePtr) {
-            return;
-        }
-        lib.destroyScene(scenePtr);
+        lib.destroyScene(assertPtr(scenePtr));
     },
-    forceRenderApp: lib.forceRenderApp,
+    renderApp(ptr: Pointer | null) {
+        lib.renderApp(assertPtr(ptr));
+    },
 };

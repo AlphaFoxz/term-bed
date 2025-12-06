@@ -36,18 +36,24 @@ pub export fn destroyApp(app: *tui_app.TuiApp) void {
     tui_app.destroyApp(app);
 }
 
-pub export fn createScene(visible: bool, bg_hex_rgb: u32) *tui_app.Scene {
-    return tui_app.Scene.init(
-        visible,
+pub export fn createSceneInfo(bg_hex_rgb: u32, visible: u8) *tui_app.SceneInfo {
+    return tui_app.SceneInfo.init(
         ansi.style.Rgba.fromU32((bg_hex_rgb << 8) + 100),
+        visible,
     );
+}
+
+pub export fn createScene(info: *tui_app.SceneInfo) *tui_app.Scene {
+    return tui_app.Scene.init(info);
 }
 
 pub export fn destroyScene(ptr: *tui_app.Scene) void {
     ptr.deinit();
 }
 
-pub export fn renderApp() void {}
+pub export fn renderApp(ptr: *tui_app.TuiApp) void {
+    render.renderApp(ptr);
+}
 
 pub export fn forceRenderApp(app_ptr: *tui_app.TuiApp) void {
     render.forceRenderApp(app_ptr);
