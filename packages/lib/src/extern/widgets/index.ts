@@ -1,6 +1,7 @@
-import { dlopen, FFIType, type Pointer, toArrayBuffer } from 'bun:ffi';
-import { fetchDllPath, toCstring } from './util';
-import { assertPtr } from './common';
+import { dlopen, FFIType, type Pointer } from 'bun:ffi';
+import { fetchDllPath, toCstring } from '../../utils/ffi';
+import { assertPtr } from '../../utils/ffi';
+import type { RectWidgetInfoOptions } from './define';
 
 const lib = dlopen(fetchDllPath(), {
     createRectWidgetInfo: {
@@ -16,15 +17,6 @@ const lib = dlopen(fetchDllPath(), {
         args: [FFIType.pointer],
     },
 }).symbols;
-
-export interface RectWidgetInfoOptions {
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-    zIndex: number;
-    visible: boolean;
-}
 
 export default {
     createRectWidgetInfo(options: RectWidgetInfoOptions): Pointer {
@@ -47,3 +39,6 @@ export default {
         lib.destroyWidget(ptr);
     },
 };
+
+export type { RectWidgetInfoOptions };
+export { RectWidgetInfo } from './RectWidgetInfo';

@@ -1,6 +1,6 @@
 import { dlopen, FFIType, type Pointer } from 'bun:ffi';
-import { fetchDllPath, toCstring } from './util';
-import { assertPtr } from './common';
+import { fetchDllPath, toCstring } from '../utils/ffi';
+import { assertPtr } from '../utils/ffi';
 
 const lib = dlopen(fetchDllPath(), {
     setupLogger: {

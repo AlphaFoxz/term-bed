@@ -10,13 +10,14 @@ pub fn genId() u64 {
     return id_generator.fetchAdd(1, .monotonic);
 }
 
-const Rect = packed struct {
-    width: TuiScale,
-    height: TuiScale,
-};
 const Point = packed struct {
     x: TuiScale,
     y: TuiScale,
+};
+
+const Rect = packed struct {
+    width: TuiScale,
+    height: TuiScale,
 };
 
 pub const RectWidgetInfo = extern struct {
@@ -50,17 +51,3 @@ pub const RectWidgetInfo = extern struct {
         glo_alloc.allocator().destroy(self);
     }
 };
-
-const testing = std.testing;
-const builtin = @import("builtin");
-
-fn expectFunction(t: anytype) void {
-    if (!builtin.is_test) {
-        @compileError("expectFunction can only be called in test mode");
-    }
-    const Type = std.builtin.Type;
-    switch (@typeInfo(@TypeOf(t))) {
-        Type.@"fn" => {},
-        else => return error.NotWidget,
-    }
-}

@@ -8,11 +8,11 @@ const rootDir = path.resolve(import.meta.dir, '..');
 const tasks = [
     {
         from: `/node_modules/native/zig-out/bin/${appName}.${suffix}`,
-        to: `/src/extern/${appName}.${suffix}`,
+        to: `/src/utils/${appName}.${suffix}`,
     },
     {
         from: `/node_modules/native/zig-out/bin/${appName}.pdb`,
-        to: `/src/extern/${appName}.pdb`,
+        to: `/src/utils/${appName}.pdb`,
     },
 ];
 

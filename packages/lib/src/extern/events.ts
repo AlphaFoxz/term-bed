@@ -1,5 +1,5 @@
-import { dlopen, FFIType, toArrayBuffer } from 'bun:ffi';
-import { fetchDllPath } from './util';
+import { dlopen, FFIType } from 'bun:ffi';
+import { fetchDllPath } from '../utils/ffi';
 
 const lib = dlopen(fetchDllPath(), {
     event_bus_setup: { args: [], returns: FFIType.void },

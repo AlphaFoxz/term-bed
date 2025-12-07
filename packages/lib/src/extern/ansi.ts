@@ -1,5 +1,5 @@
 import { dlopen, FFIType } from 'bun:ffi';
-import { toCstring, fetchDllPath } from './util';
+import { toCstring, fetchDllPath } from '../utils/ffi';
 
 const lib = dlopen(fetchDllPath(), {
     resetStyle: { returns: FFIType.void, args: [] },

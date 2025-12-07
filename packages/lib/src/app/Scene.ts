@@ -1,7 +1,7 @@
 import type { WidgetLike, Disposable, Entity } from '../extern/define';
 import app, { type SceneOptions } from '../extern/app';
 import { toArrayBuffer, type Pointer } from 'bun:ffi';
-import { rgbToRgba } from '../extern/common';
+import { rgbToRgba } from '../utils/color';
 
 export class SceneInfo implements Entity {
     #dataView: DataView;

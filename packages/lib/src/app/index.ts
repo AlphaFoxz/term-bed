@@ -6,7 +6,7 @@ import Scene from './Scene';
 import { Logger } from '../common/logger';
 import { EventType } from '../events/define';
 import { type Pointer } from 'bun:ffi';
-import { TerminalFrameArena } from '../extern/common';
+import { TerminalFrameArena } from './TerminalFrameArena';
 
 class App implements Disposable {
     #ptr: Pointer | null = null;
