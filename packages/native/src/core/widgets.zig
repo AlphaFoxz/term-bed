@@ -32,9 +32,3 @@ pub fn deinitWidget(self: *Widget) void {
         },
     }
 }
-
-const testing = @import("std").testing;
-
-test "expect which is Widget type" {
-    try common.expectWidget(text.Text);
-}

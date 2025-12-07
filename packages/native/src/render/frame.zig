@@ -3,6 +3,12 @@ const glo_alloc = @import("../core/glo_alloc.zig");
 const err = @import("../core/error.zig");
 const TuiScale = @import("../core/typedef.zig").TuiScale;
 
+pub const CellType = enum {
+    Ascii,
+    Wide,
+    Hidden,
+};
+
 pub const TuiCell = extern struct {
     char: u32,
     fg: u32,

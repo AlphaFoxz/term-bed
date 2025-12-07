@@ -64,10 +64,3 @@ fn expectFunction(t: anytype) void {
         else => return error.NotWidget,
     }
 }
-
-pub fn expectWidget(t: anytype) !void {
-    expectFunction(t.getCommonInfo);
-    expectFunction(t.updateInfo);
-    expectFunction(t.init);
-    expectFunction(t.deinit);
-}

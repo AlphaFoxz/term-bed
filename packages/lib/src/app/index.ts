@@ -6,12 +6,14 @@ import Scene from './Scene';
 import { Logger } from '../common/logger';
 import { EventType } from '../events/define';
 import { type Pointer } from 'bun:ffi';
+import { TerminalFrameArena } from '../extern/common';
 
 class App implements Disposable {
     #ptr: Pointer | null = null;
     #debugMode = false;
     #scenes: Scene[] = [];
     #running = false;
+    #frameArena = new TerminalFrameArena();
 
     constructor(options?: Partial<TuiAppOptions>) {
         const logLevel: LogLevel = options?.logLevel || 'info';

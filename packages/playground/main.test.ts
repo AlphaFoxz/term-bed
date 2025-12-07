@@ -1,5 +1,5 @@
-import { it } from 'bun:test';
+import { expect, it } from 'bun:test';
 
-it('', async () => {
+it('main', async () => {
     await import('./main');
 });

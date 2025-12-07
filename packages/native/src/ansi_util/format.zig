@@ -83,7 +83,7 @@ pub fn updateStyle(writer: anytype, n_style: CellStyle, o_style: ?CellStyle) !vo
             .Cyan => try writer.writeAll("36"),
             .White => try writer.writeAll("37"),
             .Fixed => |fixed| try writer.print("38;5;{}", .{fixed.value}),
-            .Grey => |grey| try writer.print("38;2;{};{};{}", .{ grey, grey, grey }),
+            .Grey => |grey| try writer.print("38;2;{};{};{}", .{ grey.value, grey.value, grey.value }),
             .Rgba => |rgb| try writer.print("38;2;{};{};{}", .{ rgb.r, rgb.g, rgb.b }),
         }
     }
@@ -107,7 +107,7 @@ pub fn updateStyle(writer: anytype, n_style: CellStyle, o_style: ?CellStyle) !vo
             .Cyan => try writer.writeAll("46"),
             .White => try writer.writeAll("47"),
             .Fixed => |fixed| try writer.print("48;5;{}", .{fixed.value}),
-            .Grey => |grey| try writer.print("48;2;{};{};{}", .{ grey, grey, grey }),
+            .Grey => |grey| try writer.print("48;2;{};{};{}", .{ grey.value, grey.value, grey.value }),
             .Rgba => |rgb| try writer.print("48;2;{};{};{}", .{ rgb.r, rgb.g, rgb.b }),
         }
     }
@@ -287,10 +287,11 @@ test "reset style" {
 }
 
 test "Grey foreground color" {
+    const GrayColor = @import("./style.zig").GrayColor;
     var buf: [1024]u8 = undefined;
     var fixed_buf_stream = fixedBufferStream(&buf);
     var new_style = CellStyle{};
-    new_style.foreground = Color{ .Grey = 1 };
+    new_style.foreground = Color{ .Grey = GrayColor{ .value = 1 } };
 
     try updateStyle(fixed_buf_stream.writer(), new_style, CellStyle{});
 
@@ -301,10 +302,11 @@ test "Grey foreground color" {
 }
 
 test "Grey background color" {
+    const GrayColor = @import("./style.zig").GrayColor;
     var buf: [1024]u8 = undefined;
     var fixed_buf_stream = fixedBufferStream(&buf);
     var new_style = CellStyle{};
-    new_style.background = Color{ .Grey = 1 };
+    new_style.background = Color{ .Grey = GrayColor{ .value = 1 } };
 
     try updateStyle(fixed_buf_stream.writer(), new_style, CellStyle{});
 

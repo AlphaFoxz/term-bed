@@ -9,57 +9,120 @@ pub const Rgba = packed struct {
     r: u8,
 
     pub fn toU32(self: Rgba) u32 {
-        if (self.a > 100) {
-            const v: u32 = @bitCast(self);
-            return v & 0xFFFFFF00 | 100;
-        }
         return @bitCast(self);
     }
     pub fn eql(self: Rgba, other: Rgba) bool {
         return self.toU32() == other.toU32();
     }
     pub fn fromU32(bits: u32) Rgba {
-        if (bits & 0x000000FF > 100) {
-            return @bitCast(bits & 0xFFFFFF00 | 100);
-        }
         return @bitCast(bits);
     }
-    pub fn alphaBlending(self: *Rgba, under: Rgba) void {
-        if (self.a >= 100) {
+    /// See https://en.wikipedia.org/wiki/Alpha_compositing
+    pub fn alphaCompositing(self: *Rgba, under: Rgba) void {
+        if (under.a == 0xFF) {
+            return self.alphaBlending(under);
+        }
+        if (self.a == 0xFF) {
             return;
         }
-        const alpha: u32 = self.a;
-        const inv_alpha: u32 = 100 - alpha;
-        self.r = @intCast((@as(u32, self.r) * alpha + @as(u32, under.r) * inv_alpha) / 100);
-        self.g = @intCast((@as(u32, self.g) * alpha + @as(u32, under.g) * inv_alpha) / 100);
-        self.b = @intCast((@as(u32, self.b) * alpha + @as(u32, under.b) * inv_alpha) / 100);
-        self.a = 100;
+
+        if (self.a == 0) {
+            self.r = under.r;
+            self.g = under.g;
+            self.b = under.b;
+            self.a = under.a;
+            return;
+        }
+
+        // 3. 快速路径：如果下层(under)完全透明，无需混合
+        if (under.a == 0) return;
+
+        const src_a: u32 = self.a;
+        const inv_src_a: u32 = 0xFF - src_a;
+        const dst_a: u32 = under.a;
+
+        // out_a = src_a + da * (1 - src_a)
+        // out_a_scaled = out_a * 255
+        const dst_weight_255 = dst_a * inv_src_a; // range: 0..255*255
+        const out_a_scaled = src_a * 255 + dst_weight_255;
+
+        if (out_a_scaled == 0) {
+            self.* = .{ .r = 0, .g = 0, .b = 0, .a = 0 };
+            return;
+        }
+
+        // Out = (Src * src_a + Dst * dst_a * (1-src_a)) / out_a
+        // Out = (Src * src_a * 255 + Dst * (dst_a * inv_src_a)) / (out_a * 255)
+
+        const r_num = @as(u32, self.r) * src_a * 255 + @as(u32, under.r) * dst_weight_255;
+        const g_num = @as(u32, self.g) * src_a * 255 + @as(u32, under.g) * dst_weight_255;
+        const b_num = @as(u32, self.b) * src_a * 255 + @as(u32, under.b) * dst_weight_255;
+
+        self.r = @intCast(r_num / out_a_scaled);
+        self.g = @intCast(g_num / out_a_scaled);
+        self.b = @intCast(b_num / out_a_scaled);
+        self.a = @intCast(out_a_scaled / 255);
+    }
+    /// See https://en.wikipedia.org/wiki/Alpha_compositing
+    pub fn alphaBlending(self: *Rgba, under: Rgba) void {
+        if (self.a == 0xFF) return;
+
+        const src_a: u32 = self.a;
+        const inv_src_a: u32 = 0xFF - src_a;
+
+        self.r = div255(@as(u32, self.r) * src_a + @as(u32, under.r) * inv_src_a);
+        self.g = div255(@as(u32, self.g) * src_a + @as(u32, under.g) * inv_src_a);
+        self.b = div255(@as(u32, self.b) * src_a + @as(u32, under.b) * inv_src_a);
+        self.a = 0xFF;
+    }
+    inline fn div255(x: u32) u8 {
+        return @intCast((x + 127) / 255);
     }
 };
 
 test "Rgba and u32" {
-    const white = Rgba{ .r = 0, .g = 0, .b = 0, .a = 100 };
-    try testing.expect(white.toU32() == 0x0 + 100);
+    const white = Rgba{ .r = 0, .g = 0, .b = 0, .a = 0xFF };
+    try testing.expect(white.toU32() == 0xFF);
 
-    const red = Rgba.fromU32(0xFF000000 + 100);
-    const same_red = Rgba{ .r = 0xFF, .g = 0, .b = 0, .a = 100 };
+    const red = Rgba.fromU32(0xFF0000FF);
+    const same_red = Rgba{ .r = 0xFF, .g = 0, .b = 0, .a = 0xFF };
     try testing.expectEqual(red.toU32(), same_red.toU32());
     try testing.expect(red == same_red);
     try testing.expect(meta.eql(red, same_red));
+    try testing.expect(red.eql(same_red));
 }
 
-test "Rgba too much alpha" {
-    const red = Rgba.fromU32(0xFF000064);
-    const same_red = Rgba.fromU32(0xFF0000FF);
-    try testing.expectEqual(red.toU32(), same_red.toU32());
-    try testing.expect(red == same_red);
-    try testing.expect(meta.eql(red, same_red));
+test "Rgba alpha compositing" {
+    const layer_top = Rgba.fromU32(0xFF00007F); // Red 50%
+    const layer_mid = Rgba.fromU32(0x00FF007F); // Green 50%
+    const layer_bot = Rgba.fromU32(0x000000FF); // Black 100%
+
+    var mixed = Rgba.fromU32(0);
+
+    mixed.alphaCompositing(layer_top);
+    try std.testing.expectEqual(layer_top.r, mixed.r);
+    try std.testing.expectEqual(layer_top.a, mixed.a); // 此时 Alpha 应该是 127，而不是 255
+
+    mixed.alphaCompositing(layer_mid);
+    // Alpha = 127 + 127 * (1 - 0.5) ≈ 190
+    try std.testing.expect(mixed.a > 127 and mixed.a < 255);
+
+    mixed.alphaCompositing(layer_bot);
+
+    try std.testing.expect(mixed.r >= 126 and mixed.r <= 128); // 127 ± 1
+    try std.testing.expect(mixed.g >= 62 and mixed.g <= 64); // 63 ± 1
+    try std.testing.expectEqual(@as(u8, 0x00), mixed.b); // 0
+    try std.testing.expectEqual(@as(u8, 0xFF), mixed.a); // 255
 }
 
-test "Rgba eql" {
-    const rgba = Rgba{ .a = 100, .b = 0, .g = 0, .r = 0 };
-    const rgba2 = Rgba{ .a = 100, .b = 0, .g = 0, .r = 0 };
-    try testing.expect(rgba.eql(rgba2));
+test "Rgba alpha blending" {
+    const layer_top = Rgba.fromU32(0xFF00007F); // Red 50%
+    const layer_bot = Rgba.fromU32(0x00FF00FF); // Green 100%
+
+    var mixed = Rgba.fromU32(layer_top.toU32());
+
+    mixed.alphaBlending(layer_bot);
+    try std.testing.expectEqual(mixed.toU32(), 0x7F8000FF);
 }
 
 pub const GrayColor = packed struct {

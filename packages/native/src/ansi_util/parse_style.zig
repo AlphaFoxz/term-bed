@@ -3,9 +3,10 @@ const expect = std.testing.expect;
 const expectEqual = std.testing.expectEqual;
 
 const style = @import("style.zig");
-const Style = style.Style;
+const CellStyle = style.CellStyle;
 const FontStyle = style.FontStyle;
 const Color = style.Color;
+const FixedColor = style.FixedColor;
 
 const ParseState = enum {
     parse_8,
@@ -23,7 +24,7 @@ const ParseState = enum {
 
 /// Parses an ANSI escape sequence into a Style. Returns null when the
 /// string does not represent a valid style description
-pub fn parseStyle(code: []const u8) ?Style {
+pub fn parseStyle(code: []const u8) ?CellStyle {
     if (code.len == 0 or std.mem.eql(u8, code, "0") or std.mem.eql(u8, code, "00")) {
         return null;
     }
@@ -90,7 +91,7 @@ pub fn parseStyle(code: []const u8) ?Style {
                 }
             },
             .parse_fg_256 => {
-                foreground = Color{ .Fixed = part };
+                foreground = Color{ .Fixed = FixedColor{ .value = part } };
                 state = ParseState.parse_8;
             },
             .parse_fg_red => {
@@ -103,10 +104,11 @@ pub fn parseStyle(code: []const u8) ?Style {
             },
             .parse_fg_blue => {
                 foreground = Color{
-                    .RGB = .{
+                    .Rgba = .{
                         .r = red,
                         .g = green,
                         .b = part,
+                        .a = 0xFF,
                     },
                 };
                 state = ParseState.parse_8;
@@ -121,7 +123,7 @@ pub fn parseStyle(code: []const u8) ?Style {
                 }
             },
             .parse_bg_256 => {
-                background = Color{ .Fixed = part };
+                background = Color{ .Fixed = FixedColor{ .value = part } };
                 state = ParseState.parse_8;
             },
             .parse_bg_red => {
@@ -134,10 +136,11 @@ pub fn parseStyle(code: []const u8) ?Style {
             },
             .parse_bg_blue => {
                 background = Color{
-                    .RGB = .{
+                    .Rgba = .{
                         .r = red,
                         .g = green,
                         .b = part,
+                        .a = 0xFF,
                     },
                 };
                 state = ParseState.parse_8;
@@ -148,7 +151,7 @@ pub fn parseStyle(code: []const u8) ?Style {
     if (state != ParseState.parse_8)
         return null;
 
-    return Style{
+    return CellStyle{
         .foreground = foreground,
         .background = background,
         .font_style = font_style,
@@ -156,54 +159,59 @@ pub fn parseStyle(code: []const u8) ?Style {
 }
 
 test "parse empty style" {
-    try expectEqual(@as(?Style, null), parseStyle(""));
-    try expectEqual(@as(?Style, null), parseStyle("0"));
-    try expectEqual(@as(?Style, null), parseStyle("00"));
+    try expectEqual(@as(?CellStyle, null), parseStyle(""));
+    try expectEqual(@as(?CellStyle, null), parseStyle("0"));
+    try expectEqual(@as(?CellStyle, null), parseStyle("00"));
 }
 
 test "parse bold style" {
     const actual = parseStyle("01");
-    const expected = Style{
+    const expected = CellStyle{
         .font_style = .{ .bold = true },
     };
 
-    try expectEqual(@as(?Style, expected), actual);
+    try expectEqual(@as(?CellStyle, expected), actual);
 }
 
 test "parse yellow style" {
     const actual = parseStyle("33");
-    const expected = Style{
+    const expected = CellStyle{
         .foreground = Color.Yellow,
 
         .font_style = .{},
     };
 
-    try expectEqual(@as(?Style, expected), actual);
+    try expectEqual(@as(?CellStyle, expected), actual);
 }
 
 test "parse some fixed color" {
     const actual = parseStyle("38;5;220;1");
-    const expected = Style{
-        .foreground = Color{ .Fixed = 220 },
+    const expected = CellStyle{
+        .foreground = Color{ .Fixed = FixedColor{ .value = 220 } },
 
         .font_style = .{ .bold = true },
     };
 
-    try expectEqual(@as(?Style, expected), actual);
+    try expectEqual(@as(?CellStyle, expected), actual);
 }
 
 test "parse some rgb color" {
     const actual = parseStyle("38;2;123;123;123;1");
-    const expected = Style{
-        .foreground = Color{ .RGB = .{ .r = 123, .g = 123, .b = 123 } },
+    const expected = CellStyle{
+        .foreground = Color{ .Rgba = .{
+            .r = 123,
+            .g = 123,
+            .b = 123,
+            .a = 0xFF,
+        } },
 
         .font_style = .{ .bold = true },
     };
 
-    try expectEqual(@as(?Style, expected), actual);
+    try expectEqual(@as(?CellStyle, expected), actual);
 }
 
 test "parse wrong rgb color" {
     const actual = parseStyle("38;2;123");
-    try expectEqual(@as(?Style, null), actual);
+    try expectEqual(@as(?CellStyle, null), actual);
 }
